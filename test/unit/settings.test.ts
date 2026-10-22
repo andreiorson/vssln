@@ -27,6 +27,16 @@ test('wrong-typed values are dropped with a problem each, valid ones kept', () =
   expect(r.problems).toHaveLength(3);
 });
 
+test('a UTF-8 BOM is not a syntax error', () => {
+  const r = parseSettings('﻿{ "configuration": "Debug|x64" }');
+  expect(r).toEqual({ settings: { configuration: 'Debug|x64' }, syntaxOk: true, problems: [] });
+});
+
+test('selection edit on a file with a BOM stays valid', () => {
+  const out = applySelectionEdit('﻿{ "configuration": "Debug|x64" }', 'startupProject', 'Game');
+  expect(parseSettings(out).settings).toEqual({ configuration: 'Debug|x64', startupProject: 'Game' });
+});
+
 test('empty text is an empty, valid settings object', () => {
   expect(parseSettings('')).toEqual({ settings: {}, syntaxOk: true, problems: [] });
 });

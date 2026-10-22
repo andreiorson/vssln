@@ -197,7 +197,14 @@ function lineAt(text: string, offset: number): number {
   return text.slice(0, pos).split('\n').length;
 }
 
-export function parseSettings(text: string): ParsedSettings {
+const BOM = '﻿';
+
+function stripBom(text: string): string {
+  return text.startsWith(BOM) ? text.slice(1) : text;
+}
+
+export function parseSettings(raw: string): ParsedSettings {
+  const text = stripBom(raw);
   if (text.trim() === '') return { settings: {}, syntaxOk: true, problems: [] };
 
   const errors: ParseError[] = [];
@@ -219,16 +226,21 @@ export function parseSettings(text: string): ParsedSettings {
 
 const FORMATTING = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: '\n' } };
 
+/** Applies an edit to the text without its BOM (jsonc-parser rejects it) and puts the BOM back. */
+function edit(raw: string, change: (base: string) => string): string {
+  const bom = raw.startsWith(BOM) ? BOM : '';
+  const text = stripBom(raw);
+  return bom + change(text.trim() === '' ? '{}' : text);
+}
+
 /** Sets one selection key, keeping comments and formatting of the rest of the file. */
 export function applySelectionEdit(text: string, key: SelectionKey, value: string): string {
-  const base = text.trim() === '' ? '{}' : text;
-  return applyEdits(base, modify(base, [key], value, FORMATTING));
+  return edit(text, base => applyEdits(base, modify(base, [key], value, FORMATTING)));
 }
 
 /** Adds `"key": {}` at the top level when the key is absent; otherwise returns the text unchanged. */
 export function ensureObjectKey(text: string, key: string): string {
-  const base = text.trim() === '' ? '{}' : text;
-  const root: unknown = parse(base, [], { allowTrailingComma: true });
+  const root: unknown = parse(stripBom(text), [], { allowTrailingComma: true });
   if (isObject(root) && key in root) return text;
-  return applyEdits(base, modify(base, [key], {}, FORMATTING));
+  return edit(text, base => applyEdits(base, modify(base, [key], {}, FORMATTING)));
 }

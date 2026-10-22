@@ -16,10 +16,12 @@ export async function isIgnored(exec: Exec, folder: string, relPath: string): Pr
 
 /** Adds the path to the repository's local exclude file (never to .gitignore). */
 export async function addToExclude(exec: Exec, fs: SettingsFs, folder: string, relPath: string): Promise<void> {
-  const { code, stdout } = await exec('git', ['-C', folder, 'rev-parse', '--git-path', 'info/exclude']);
-  if (code !== 0) throw new Error('git rev-parse failed');
-  const excludePath = path.win32.resolve(folder, stdout.trim());
-  const line = '/' + relPath.replace(/\\/g, '/');
+  const gitPath = await exec('git', ['-C', folder, 'rev-parse', '--git-path', 'info/exclude']);
+  // Patterns in info/exclude are relative to the repository root, which may be above the workspace folder.
+  const prefix = await exec('git', ['-C', folder, 'rev-parse', '--show-prefix']);
+  if (gitPath.code !== 0 || prefix.code !== 0) throw new Error('git rev-parse failed');
+  const excludePath = path.win32.resolve(folder, gitPath.stdout.trim());
+  const line = '/' + prefix.stdout.trim() + relPath.replace(/\\/g, '/');
 
   const current = (await fs.readText(excludePath)) ?? '';
   if (current.split(/\r?\n/).some(l => l.trim() === line)) return;

@@ -6,7 +6,7 @@ import { SETTINGS_RELATIVE_PATH, SettingsFile, SettingsSyntaxError } from '../se
 import { TreeNode } from '../solution/model';
 import { loadWorkspace } from '../state/loader';
 import { Store } from '../state/store';
-import { folderOf } from '../util/paths';
+import { folderOf, samePath } from '../util/paths';
 import { exec, loaderDeps, nodeFs, workspaceFolders } from './host';
 import { configurationItems, PickItem, solutionItems, startupItems } from './pickItems';
 
@@ -38,9 +38,14 @@ export class Controller {
   async writeSelection(key: SelectionKey, value: string, folder = this.settingsFolder()): Promise<void> {
     if (!folder) return;
     const file = new SettingsFile(folder, nodeFs);
+    if (vscode.workspace.textDocuments.some(d => d.isDirty && d.uri.scheme === 'file' && samePath(d.uri.fsPath, file.path))) {
+      void vscode.window.showWarningMessage('vssln.json has unsaved changes. Save or revert it before changing the selection.');
+      return;
+    }
     try {
       const { created } = await file.writeSelection(key, value);
-      if (created) await this.offerGitExclude(folder);
+      // The prompt stays pending until the notification is closed, so it must not hold up the reload.
+      if (created) void this.offerGitExclude(folder);
     } catch (e) {
       if (!(e instanceof SettingsSyntaxError)) throw e;
       const open = 'Open settings';
@@ -79,12 +84,10 @@ export class Controller {
     const parsed = await file.read();
     let text = current ?? '{\n}\n';
     if (revealKey && parsed.syntaxOk) text = ensureObjectKey(text, revealKey);
-    if (text !== current) {
-      await nodeFs.writeText(file.path, text);
-      if (current === undefined) await this.offerGitExclude(folder);
-    }
+    if (text !== current) await nodeFs.writeText(file.path, text);
 
     const editor = await vscode.window.showTextDocument(vscode.Uri.file(file.path));
+    if (current === undefined) void this.offerGitExclude(folder);
     if (revealKey) {
       const offset = editor.document.getText().indexOf(`"${revealKey}"`);
       if (offset >= 0) {
