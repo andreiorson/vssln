@@ -15,7 +15,7 @@ export interface ProjectDump {
 }
 
 /** Properties that put MSBuild into Visual Studio's design-time mode: nothing is compiled. */
-const DESIGN_TIME = {
+export const DESIGN_TIME = {
   DesignTimeBuild: 'true',
   BuildingInsideVisualStudio: 'true',
   SkipCompilerExecution: 'true',
