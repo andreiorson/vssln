@@ -1,0 +1,182 @@
+Build started 22/10/2026 17:11:50.
+
+     1>Project "C:\src\Engine\Engine.sln" on node 1 (Rebuild target(s)).
+     1>ValidateSolutionConfiguration:
+         Building solution configuration "Release|x64".
+     1>C:\src\Engine\Engine.sln.metaproj : warning MSB4121: The project configuration for project "Legacy" was not specified in the solution file for the solution configuration "Release|x64". [C:\src\Engine\Engine.sln]
+         The project "Missing" is not selected for building in solution configuration "Release|x64".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Graphics\Shaders\Shaders.vcxproj" (3) on node 3 (Rebuild target(s)).
+     3>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\Shaders.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Game\Game.vcxproj" (5) on node 5 (Rebuild target(s)).
+     5>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Game\x64\Release\Game.tlog\Game.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Tests\MathTests\MathTests.vcxproj" (4) on node 6 (Rebuild target(s)).
+     4>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\MathTests\x64\Release\MathTests.tlog\MathTests.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Core\Math\Math.vcxproj" (6) on node 7 (Rebuild target(s)).
+     6>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Math\x64\Release\Math.tlog\Math.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Audio\Audio.vcxproj" (8) on node 8 (Rebuild target(s)).
+     8>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Audio\x64\Release\Audio.tlog\Audio.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Core\Containers\Containers.vcxproj" (9) on node 10 (Rebuild target(s)).
+     9>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Containers\x64\Release\Containers.tlog\Containers.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Core\Platform\Platform.vcxproj" (7) on node 4 (Rebuild target(s)).
+     7>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Platform\x64\Release\Platform.tlog\Platform.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Tools\Editor\Editor.vcxproj" (10) on node 2 (Rebuild target(s)).
+    10>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Editor\x64\Release\Editor.tlog\Editor.lastbuildstate".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Tools\AssetCooker\AssetCooker.vcxproj" (11) on node 9 (Rebuild target(s)).
+    11>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\AssetCooker\x64\Release\AssetCooker.tlog\AssetCooker.lastbuildstate".
+     3>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+     9>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+     3>InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\unsuccessfulbuild".
+     6>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+     7>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+     9>InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Containers\x64\Release\Containers.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Containers\x64\Release\Containers.tlog\unsuccessfulbuild".
+     7>InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Platform\x64\Release\Platform.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Platform\x64\Release\Platform.tlog\unsuccessfulbuild".
+     8>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+     6>InitializeBuildStatus:
+         Touching "C:\src\Engine\out\obj\Math\x64\Release\Math.tlog\unsuccessfulbuild".
+     8>InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Audio\x64\Release\Audio.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Audio\x64\Release\Audio.tlog\unsuccessfulbuild".
+     6>ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+     9>ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+     7>ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+     8>ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+     7>ComputeStdModulesCompileInputs:
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+     8>ComputeStdModulesCompileInputs:
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+    11>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+       InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\AssetCooker\x64\Release\AssetCooker.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\AssetCooker\x64\Release\AssetCooker.tlog\unsuccessfulbuild".
+       ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+     9>ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D "ENGINE_FLAVOR=\"\"" /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Fo"C:\src\Engine\out\obj\Containers\x64\Release\\" /Fd"C:\src\Engine\out\x64\Release\Containers.pdb" /external:W3 /Gd /TP /FC /errorReport:queue containers.cpp
+     8>ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D AUDIO_EXPORTS /D "ENGINE_FLAVOR=\"\"" /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Fo"C:\src\Engine\out\obj\Audio\x64\Release\\" /Fd"C:\src\Engine\out\obj\Audio\x64\Release\vc145.pdb" /external:W3 /Gd /TP /FC /errorReport:queue audio.cpp
+     7>ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D "ENGINE_FLAVOR=\"\"" /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Fo"C:\src\Engine\out\obj\Platform\x64\Release\\" /Fd"C:\src\Engine\out\x64\Release\Platform.pdb" /external:W3 /Gd /TP /FC /errorReport:queue platform.cpp
+    11>ComputeStdModulesCompileInputs:
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+     6>ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D "ENGINE_FLAVOR=\"\"" /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Fo"C:\src\Engine\out\obj\Math\x64\Release\\" /Fd"C:\src\Engine\out\x64\Release\Math.pdb" /external:W3 /Gd /TP /FC /errorReport:queue vector.cpp matrix.cpp
+     3>CustomBuild:
+         Generating shaders.h
+     5>Project "C:\src\Engine\Game\Game.vcxproj" (5) is building "C:\src\Engine\Graphics\Render\Render.vcxproj" (12) on node 1 (Clean target(s)).
+    12>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Render\x64\Release\Render.tlog\Render.lastbuildstate".
+     3>FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\Shaders.lastbuildstate".
+    11>ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D "ENGINE_FLAVOR=\"\"" /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Fo"C:\src\Engine\out\obj\AssetCooker\x64\Release\\" /Fd"C:\src\Engine\out\obj\AssetCooker\x64\Release\vc145.pdb" /external:W3 /Gd /TP /FC /errorReport:queue cooker.cpp
+     3>Done Building Project "C:\src\Engine\Graphics\Shaders\Shaders.vcxproj" (Rebuild target(s)).
+     9>ClCompile:
+         containers.cpp
+     7>ClCompile:
+         platform.cpp
+     6>ClCompile:
+         vector.cpp
+    12>Done Building Project "C:\src\Engine\Graphics\Render\Render.vcxproj" (Clean target(s)).
+     8>ClCompile:
+         audio.cpp
+     6>C:\src\Engine\Core\Math\vector.cpp(4,1): error C1189: #error:  "ENGINE_BREAK_BUILD is defined: this build is meant to fail in Math." [C:\src\Engine\Core\Math\Math.vcxproj]
+    11>ClCompile:
+         cooker.cpp
+     6>ClCompile:
+         matrix.cpp
+     7>Lib:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\Lib.exe /OUT:"C:\src\Engine\out\x64\Release\Platform.lib" /NOLOGO /MACHINE:X64 /LTCG C:\src\Engine\out\obj\Platform\x64\Release\platform.obj
+     8>Link:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\link.exe /ERRORREPORT:QUEUE /OUT:"C:\src\Engine\out\x64\Release\Audio.dll" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\src\Engine\out\x64\Release\Audio.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG:incremental /LTCGOUT:"C:\src\Engine\out\obj\Audio\x64\Release\Audio.iobj" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\src\Engine\out\x64\Release\Audio.lib" /MACHINE:X64 /DLL C:\src\Engine\out\obj\Audio\x64\Release\audio.obj
+     6>Done Building Project "C:\src\Engine\Core\Math\Math.vcxproj" (Rebuild target(s)) -- FAILED.
+     4>Done Building Project "C:\src\Engine\Tests\MathTests\MathTests.vcxproj" (Rebuild target(s)) -- FAILED.
+    10>Done Building Project "C:\src\Engine\Tools\Editor\Editor.vcxproj" (Rebuild target(s)) -- FAILED.
+     8>Link:
+            Creating library C:\src\Engine\out\x64\Release\Audio.lib and object C:\src\Engine\out\x64\Release\Audio.exp
+         Generating code
+     9>Lib:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\Lib.exe /OUT:"C:\src\Engine\out\x64\Release\Containers.lib" /NOLOGO /MACHINE:X64 /LTCG C:\src\Engine\out\obj\Containers\x64\Release\containers.obj
+     7>Lib:
+         Platform.vcxproj -> C:\src\Engine\out\x64\Release\Platform.lib
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Platform\x64\Release\Platform.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Platform\x64\Release\Platform.tlog\Platform.lastbuildstate".
+     7>Done Building Project "C:\src\Engine\Core\Platform\Platform.vcxproj" (Rebuild target(s)).
+     9>Lib:
+         Containers.vcxproj -> C:\src\Engine\out\x64\Release\Containers.lib
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Containers\x64\Release\Containers.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Containers\x64\Release\Containers.tlog\Containers.lastbuildstate".
+     9>Done Building Project "C:\src\Engine\Core\Containers\Containers.vcxproj" (Rebuild target(s)).
+     8>Link:
+         Previous IPDB not found, fall back to full compilation.
+         All 1 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+         Finished generating code
+         Audio.vcxproj -> C:\src\Engine\out\x64\Release\Audio.dll
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Audio\x64\Release\Audio.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Audio\x64\Release\Audio.tlog\Audio.lastbuildstate".
+     8>Done Building Project "C:\src\Engine\Audio\Audio.vcxproj" (Rebuild target(s)).
+     5>Done Building Project "C:\src\Engine\Game\Game.vcxproj" (Rebuild target(s)) -- FAILED.
+    11>Link:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\link.exe /ERRORREPORT:QUEUE /OUT:"C:\src\Engine\out\x64\Release\AssetCooker.exe" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\src\Engine\out\x64\Release\AssetCooker.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG:incremental /LTCGOUT:"C:\src\Engine\out\obj\AssetCooker\x64\Release\AssetCooker.iobj" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\src\Engine\out\x64\Release\AssetCooker.lib" /MACHINE:X64 C:\src\Engine\out\obj\AssetCooker\x64\Release\cooker.obj
+         Generating code
+         Previous IPDB not found, fall back to full compilation.
+         All 333 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+         Finished generating code
+         AssetCooker.vcxproj -> C:\src\Engine\out\x64\Release\AssetCooker.exe
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\AssetCooker\x64\Release\AssetCooker.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\AssetCooker\x64\Release\AssetCooker.tlog\AssetCooker.lastbuildstate".
+    11>Done Building Project "C:\src\Engine\Tools\AssetCooker\AssetCooker.vcxproj" (Rebuild target(s)).
+     1>Done Building Project "C:\src\Engine\Engine.sln" (Rebuild target(s)) -- FAILED.
+
+Build FAILED.
+
+       "C:\src\Engine\Engine.sln" (Rebuild target) (1) ->
+       (ValidateProjects target) -> 
+         C:\src\Engine\Engine.sln.metaproj : warning MSB4121: The project configuration for project "Legacy" was not specified in the solution file for the solution configuration "Release|x64". [C:\src\Engine\Engine.sln]
+
+
+       "C:\src\Engine\Engine.sln" (Rebuild target) (1) ->
+       "C:\src\Engine\Core\Math\Math.vcxproj" (Rebuild target) (6) ->
+       (ClCompile target) -> 
+         C:\src\Engine\Core\Math\vector.cpp(4,1): error C1189: #error:  "ENGINE_BREAK_BUILD is defined: this build is meant to fail in Math." [C:\src\Engine\Core\Math\Math.vcxproj]
+
+    1 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:03.39

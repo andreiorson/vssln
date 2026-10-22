@@ -1,0 +1,90 @@
+Build started 22/10/2026 17:19:58.
+
+     1>Project "C:\src\Engine\Engine.sln" on node 1 (Graphics\Render:Rebuild target(s)).
+     1>ValidateSolutionConfiguration:
+         Building solution configuration "Release|x64".
+     1>C:\src\Engine\Engine.sln.metaproj : warning MSB4121: The project configuration for project "Legacy" was not specified in the solution file for the solution configuration "Release|x64". [C:\src\Engine\Engine.sln]
+         The project "Missing" is not selected for building in solution configuration "Release|x64".
+     1>Project "C:\src\Engine\Engine.sln" (1) is building "C:\src\Engine\Graphics\Render\Render.vcxproj.metaproj" (2) on node 1 (Rebuild target(s)).
+     2>Project "C:\src\Engine\Graphics\Render\Render.vcxproj.metaproj" (2) is building "C:\src\Engine\Graphics\Shaders\Shaders.vcxproj" (3) on node 1 (Rebuild target(s)).
+     3>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\Shaders.lastbuildstate".
+       PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+       InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\unsuccessfulbuild".
+       CustomBuild:
+         Generating shaders.h
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Shaders\x64\Release\Shaders.tlog\Shaders.lastbuildstate".
+     3>Done Building Project "C:\src\Engine\Graphics\Shaders\Shaders.vcxproj" (Rebuild target(s)).
+     2>Project "C:\src\Engine\Graphics\Render\Render.vcxproj.metaproj" (2) is building "C:\src\Engine\Graphics\Render\Render.vcxproj" (4) on node 1 (Rebuild target(s)).
+     4>_PrepareForClean:
+         Deleting file "C:\src\Engine\out\obj\Render\x64\Release\Render.tlog\Render.lastbuildstate".
+     4>Project "C:\src\Engine\Graphics\Render\Render.vcxproj" (4) is building "C:\src\Engine\Core\Math\Math.vcxproj" (5:2) on node 1 (default targets).
+     5>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+       InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Math\x64\Release\Math.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Math\x64\Release\Math.tlog\unsuccessfulbuild".
+       ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+       ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D "ENGINE_FLAVOR=\"\"" /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Fo"C:\src\Engine\out\obj\Math\x64\Release\\" /Fd"C:\src\Engine\out\x64\Release\Math.pdb" /external:W3 /Gd /TP /FC /errorReport:queue vector.cpp matrix.cpp
+         vector.cpp
+         matrix.cpp
+       Lib:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\Lib.exe /OUT:"C:\src\Engine\out\x64\Release\Math.lib" /NOLOGO /MACHINE:X64 /LTCG C:\src\Engine\out\obj\Math\x64\Release\vector.obj
+         C:\src\Engine\out\obj\Math\x64\Release\matrix.obj
+         Math.vcxproj -> C:\src\Engine\out\x64\Release\Math.lib
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Math\x64\Release\Math.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Math\x64\Release\Math.tlog\Math.lastbuildstate".
+     5>Done Building Project "C:\src\Engine\Core\Math\Math.vcxproj" (default targets).
+     4>PrepareForBuild:
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+       InitializeBuildStatus:
+         Creating "C:\src\Engine\out\obj\Render\x64\Release\Render.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "C:\src\Engine\out\obj\Render\x64\Release\Render.tlog\unsuccessfulbuild".
+       ComputeStdModulesCompileInputs:
+         Reading library manifest file 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\modules.json' which provides data for library 'microsoft/STL'.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.ixx' from library 'microsoft/STL' to be built with this project.
+         Adding module source 'C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\modules\std.compat.ixx' from library 'microsoft/STL' to be built with this project.
+       ClCompile:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\out\generated /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D RENDER_EXPORTS /D "ENGINE_FLAVOR=\"\"" /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Yc"pch.h" /Fp"C:\src\Engine\out\obj\Render\x64\Release\Render.pch" /Fo"C:\src\Engine\out\obj\Render\x64\Release\\" /Fd"C:\src\Engine\out\obj\Render\x64\Release\vc145.pdb" /external:W3 /Gd /TP /FC /errorReport:queue pch.cpp
+         pch.cpp
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\CL.exe /c /IC:\src\Engine\out\generated /IC:\src\Engine\Core\include /Zi /nologo /W3 /WX- /diagnostics:column /sdl /O2 /Oi /GL /D NDEBUG /D _CONSOLE /D RENDER_EXPORTS /D "ENGINE_FLAVOR=\"\"" /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /std:c++20 /permissive- /Yu"pch.h" /Fp"C:\src\Engine\out\obj\Render\x64\Release\Render.pch" /Fo"C:\src\Engine\out\obj\Render\x64\Release\\" /Fd"C:\src\Engine\out\obj\Render\x64\Release\vc145.pdb" /external:W3 /Gd /TP /FC /errorReport:queue render.cpp frame.cpp
+         render.cpp
+         frame.cpp
+       Link:
+         C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\link.exe /ERRORREPORT:QUEUE /OUT:"C:\src\Engine\out\x64\Release\Render.dll" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\src\Engine\out\x64\Release\Render.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG:incremental /LTCGOUT:"C:\src\Engine\out\obj\Render\x64\Release\Render.iobj" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\src\Engine\out\x64\Release\Render.lib" /MACHINE:X64 /DLL C:\src\Engine\out\obj\Render\x64\Release\pch.obj
+         C:\src\Engine\out\obj\Render\x64\Release\render.obj
+         C:\src\Engine\out\obj\Render\x64\Release\frame.obj
+         C:\src\Engine\out\x64\Release\Math.lib
+            Creating library C:\src\Engine\out\x64\Release\Render.lib and object C:\src\Engine\out\x64\Release\Render.exp
+         Generating code
+         Previous IPDB not found, fall back to full compilation.
+         All 4 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+         Finished generating code
+         Render.vcxproj -> C:\src\Engine\out\x64\Release\Render.dll
+       FinalizeBuildStatus:
+         Deleting file "C:\src\Engine\out\obj\Render\x64\Release\Render.tlog\unsuccessfulbuild".
+         Touching "C:\src\Engine\out\obj\Render\x64\Release\Render.tlog\Render.lastbuildstate".
+     4>Done Building Project "C:\src\Engine\Graphics\Render\Render.vcxproj" (Rebuild target(s)).
+     2>Done Building Project "C:\src\Engine\Graphics\Render\Render.vcxproj.metaproj" (Rebuild target(s)).
+     1>Done Building Project "C:\src\Engine\Engine.sln" (Graphics\Render:Rebuild target(s)).
+
+Build succeeded.
+
+       "C:\src\Engine\Engine.sln" (Graphics\Render:Rebuild target) (1) ->
+       (ValidateProjects target) -> 
+         C:\src\Engine\Engine.sln.metaproj : warning MSB4121: The project configuration for project "Legacy" was not specified in the solution file for the solution configuration "Release|x64". [C:\src\Engine\Engine.sln]
+
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.80
