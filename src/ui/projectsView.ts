@@ -60,6 +60,11 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
     return this.filter && this.result().matched === 0 ? `No projects match "${this.filter}".` : undefined;
   }
 
+  /** Redraws the tree, for changes that do not go through the store (files created or deleted on disk). */
+  refresh(): void {
+    this.changed.fire();
+  }
+
   getChildren(element?: TreeNode): TreeNode[] {
     return element ? this.registry.childrenOf(element) : this.result().roots;
   }
@@ -77,9 +82,16 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
     item.id = this.filter ? `${node.id}#filtered` : node.id;
     item.description = row.description;
     item.tooltip = row.tooltip;
-    item.iconPath = new vscode.ThemeIcon(row.icon, row.iconColor ? new vscode.ThemeColor(row.iconColor) : undefined);
+    item.iconPath =
+      row.themeIcon === 'file'
+        ? vscode.ThemeIcon.File
+        : row.themeIcon === 'folder'
+          ? vscode.ThemeIcon.Folder
+          : new vscode.ThemeIcon(row.icon, row.iconColor ? new vscode.ThemeColor(row.iconColor) : undefined);
     item.contextValue = row.contextValue;
-    item.resourceUri = vscode.Uri.parse(row.resourceUri);
+    // A file row's real URI gives the file icon theme and the Explorer's decorations (git status, problems).
+    item.resourceUri = row.openPath ? vscode.Uri.file(row.openPath) : vscode.Uri.parse(row.resourceUri);
+    if (row.openPath) item.command = { command: 'vscode.open', title: 'Open', arguments: [item.resourceUri] };
     return item;
   }
 

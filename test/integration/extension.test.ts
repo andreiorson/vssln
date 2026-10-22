@@ -89,6 +89,39 @@ suite('activation', () => {
     });
   });
 
+  test('a project shows its filters and files; a click opens a file', async () => {
+    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    await waitFor(() => api.getState().phase === 'ready', 10000);
+    const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
+    const view = api.views.projects;
+    const game = view.getChildren().find(n => n.label === 'Game')!;
+    assert.strictEqual(view.getTreeItem(game).collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
+    const filters = view.getChildren(game);
+    assert.deepStrictEqual(filters.map(n => n.label), ['Header Files', 'Resource Files', 'Source Files']);
+    assert.strictEqual(view.getTreeItem(filters[1]).collapsibleState, vscode.TreeItemCollapsibleState.None);
+    const sourceFiles = () => view.getChildren(view.getChildren(game).find(n => n.label === 'Source Files')!);
+    assert.deepStrictEqual(sourceFiles().map(n => n.label), ['game.cpp', 'main.cpp']);
+    const row = (label: string) => view.getTreeItem(sourceFiles().find(n => n.label === label)!);
+
+    const main = row('main.cpp');
+    assert.strictEqual(main.command?.command, 'vscode.open');
+    assert.strictEqual((main.command!.arguments![0] as vscode.Uri).fsPath.toLowerCase(), path.join(folder, 'Game', 'main.cpp').toLowerCase());
+    assert.strictEqual(main.resourceUri!.scheme, 'file');
+    assert.strictEqual(main.contextValue, 'file');
+
+    assert.strictEqual(row('game.cpp').description, 'file not found');
+    assert.strictEqual(row('game.cpp').command, undefined);
+    const src = path.join(folder, 'Game', 'src');
+    try {
+      await writeRetrying(path.join(src, 'game.cpp'), '// created by a test\n');
+      await waitFor(() => row('game.cpp').description === undefined, 10000);
+    } finally {
+      fs.rmSync(src, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
+    // Deleting the folder is one event for the folder itself.
+    await waitFor(() => row('game.cpp').description === 'file not found', 10000);
+  });
+
   test('the Projects view renders the fixture tree', async () => {
     const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);

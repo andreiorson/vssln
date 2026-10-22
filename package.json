@@ -298,12 +298,12 @@
         },
         {
           "command": "vssln.revealInExplorer",
-          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib|inactive)$/",
+          "when": "view == vssln.projects && viewItem =~ /^(project\\.(app|lib|inactive)|file)$/",
           "group": "2_file@2"
         },
         {
           "command": "vssln.copyPath",
-          "when": "view == vssln.projects && viewItem =~ /^project\\./",
+          "when": "view == vssln.projects && viewItem =~ /^(project\\..*|file|file\\.missing)$/",
           "group": "2_file@3"
         },
         {

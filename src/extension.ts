@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { ChildrenRegistry } from './solution/model';
 import { AppState, Store } from './state/store';
@@ -7,6 +8,7 @@ import { Debugging, registerDebugging } from './ui/debugging';
 import { Controller, registerCommands } from './ui/commands';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
 import { registerProjectsFilter } from './ui/projectsFilter';
+import { ProjectItemsProvider } from './ui/projectItems';
 import { ProjectsView } from './ui/projectsView';
 import { StatusBar } from './ui/statusBar';
 import { StatusView } from './ui/statusView';
@@ -26,29 +28,35 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const log = vscode.window.createOutputChannel('VS Solution', { log: true });
   const store = new Store();
   const registry = new ChildrenRegistry();
+  const items = new ProjectItemsProvider(store, p => fs.existsSync(p));
+  registry.register(items);
   const controller = new Controller(store, log);
   const builds = new Builds(store, context.logUri.fsPath, log, () => controller.reload());
   const debugging = new Debugging(store, builds, context.asAbsolutePath('resources/vssln-debug.targets'), log);
 
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
+  const itemsChanged = items.onDidChange(() => projectsView.refresh());
   const decorations = new ProjectDecorations(store);
   const projectsTree = vscode.window.createTreeView('vssln.projects', { treeDataProvider: projectsView, showCollapseAll: true });
   const reload = debounce(() => void controller.reload(), 300);
 
   // Project files matter too: a created Missing project or added sources change the tree.
-  const watchers = ['**/.vscode/vssln.json', '**/*.sln', '**/*.vcxproj'].map(glob => vscode.workspace.createFileSystemWatcher(glob));
+  const watchers = ['**/.vscode/vssln.json', '**/*.sln', '**/*.vcxproj', '**/*.vcxproj.filters'].map(glob => vscode.workspace.createFileSystemWatcher(glob));
   for (const watcher of watchers) {
     watcher.onDidCreate(reload);
     watcher.onDidChange(reload);
     watcher.onDidDelete(reload);
   }
-  // A deleted folder is reported once for the folder itself, which the globs above do not match.
-  const deletions = vscode.workspace.createFileSystemWatcher('**/*', true, true, false);
-  deletions.onDidDelete(uri => {
+  // A deleted folder is reported once for the folder itself, which the globs above do not match. Created and deleted
+  // files also refresh the projects that list them (greyed out while missing).
+  const files = vscode.workspace.createFileSystemWatcher('**/*', false, true, false);
+  files.onDidCreate(uri => items.fileChanged(uri.fsPath));
+  files.onDidDelete(uri => {
     if (deletionAffects(uri.fsPath, store.state)) reload();
+    items.fileChanged(uri.fsPath, true);
   });
-  watchers.push(deletions);
+  watchers.push(files);
 
   let building = false;
   const setContext = (s: AppState) => {
@@ -64,6 +72,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     log,
     statusView,
     projectsView,
+    itemsChanged,
     decorations,
     new StatusBar(store),
     vscode.window.createTreeView('vssln.status', { treeDataProvider: statusView }),

@@ -148,7 +148,7 @@ async function pick<T>(items: PickItem<T>[], placeHolder: string): Promise<PickI
 }
 
 function nodePath(node: TreeNode | undefined): string | undefined {
-  return node?.project?.absPath;
+  return node?.project?.absPath ?? node?.item?.path;
 }
 
 export function registerCommands(store: Store, controller: Controller, log: vscode.LogOutputChannel): vscode.Disposable[] {

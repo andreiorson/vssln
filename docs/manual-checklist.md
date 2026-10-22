@@ -19,6 +19,15 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] A folder name (`tools`) keeps every project inside it; `xyz` shows `No projects match "xyz".`.
 - [ ] Enter keeps the filter, Escape brings the previous one back, the ✕ button clears it; the full tree comes back with its earlier expansion state.
 
+## Filters and files
+
+- [ ] Expand `Graphics › Render`: `Header Files` and `Source Files` (as in Solution Explorer), then `pch.h` under `Header Files` and `frame.cpp`, `pch.cpp`, `render.cpp` under `Source Files`, with the icons of the file icon theme.
+- [ ] A click on `render.cpp` opens it as a preview; the row shows the Explorer's git colour once the file is modified.
+- [ ] Right-click a file: Reveal in Explorer and Copy path; there is no Build or Set as startup.
+- [ ] Rename `Graphics/Render/frame.cpp` on disk: `frame.cpp` turns grey with `file not found`; renaming it back restores it, without a reload.
+- [ ] Add `<ClCompile Include="extra.cpp"><Filter>Source Files\Extra</Filter></ClCompile>` to `Render.vcxproj.filters` and `<ClCompile Include="extra.cpp" />` to `Render.vcxproj`: after saving, `Source Files › Extra › extra.cpp` appears (grey), and expanded nodes stay expanded. Undo both edits.
+- [ ] A project without a `.filters` file shows its files directly under the project; a library project (Audio) expands as well; `Legacy` (greyed, not in Release|x64) still shows its files, like Solution Explorer; `Missing` (file not found) has no arrow.
+
 ## Selection and settings file
 
 - [ ] Pick `Debug | x64` in the configuration picker: `.vscode/vssln.json` is created with `"configuration": "Debug|x64"`, and `Legacy` stays greyed out.

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Store } from '../state/store';
 import { coalesce } from './coalesce';
-import { projectDecoration, statusDecoration } from './viewModel';
+import { ITEM_SCHEME, projectDecoration, statusDecoration } from './viewModel';
 
 export const PROJECT_SCHEME = 'vssln-project';
 const STATUS_SCHEME = 'vssln-status';
@@ -17,7 +17,7 @@ export class ProjectDecorations implements vscode.FileDecorationProvider, vscode
   }
 
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-    const d = uri.scheme === PROJECT_SCHEME
+    const d = uri.scheme === PROJECT_SCHEME || uri.scheme === ITEM_SCHEME
       ? projectDecoration(uri.toString(), this.store.state)
       : uri.scheme === STATUS_SCHEME
         ? statusDecoration(uri.toString(), this.store.state)
