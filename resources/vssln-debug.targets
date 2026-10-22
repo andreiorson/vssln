@@ -1,0 +1,19 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Imported through CustomAfterMicrosoftCommonTargets by the VS Solution extension: prints what a debug launch of
+    this project needs, one "VSSLN|<Name>|<value>" line each. Line breaks inside values become \n.
+  -->
+  <Target Name="VsslnDebugProperties">
+    <PropertyGroup>
+      <_VsslnCrLf>%0D%0A</_VsslnCrLf>
+    </PropertyGroup>
+    <Message Importance="high" Text="VSSLN|TargetPath|$(TargetPath)" />
+    <Message Importance="high" Text="VSSLN|LocalDebuggerCommand|$(LocalDebuggerCommand)" />
+    <Message Importance="high" Text="VSSLN|LocalDebuggerCommandArguments|$(LocalDebuggerCommandArguments)" />
+    <Message Importance="high" Text="VSSLN|LocalDebuggerWorkingDirectory|$(LocalDebuggerWorkingDirectory)" />
+    <Message Importance="high" Text="VSSLN|LocalDebuggerEnvironment|$(LocalDebuggerEnvironment.Replace($(_VsslnCrLf), '\n').Replace('%0A', '\n'))" />
+    <Message Importance="high" Text="VSSLN|LocalDebuggerMergeEnvironment|$(LocalDebuggerMergeEnvironment)" />
+    <Message Importance="high" Text="VSSLN|ProjectDir|$(ProjectDir)" />
+    <Message Importance="high" Text="VSSLN|ConfigurationType|$(ConfigurationType)" />
+  </Target>
+</Project>
