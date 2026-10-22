@@ -101,7 +101,8 @@ Node model: every node has a kind and a children provider. v1 kinds: solution fo
 - Node ids are stable across reloads (`<project guid>/f/<filter path>`, `<project guid>/i/<file path>`, lower case), so expanded nodes stay expanded.
 - Reading: the `.vcxproj.filters` is read with its `.vcxproj` when the solution loads (both are small); whether files exist is checked when a project is expanded, and again when it is collapsed and expanded (for files outside the workspace, which no watcher sees). A change of a `.vcxproj.filters` reloads like a `.vcxproj` change; creating or deleting a file a project lists, or a folder above one (restoring a deleted folder is one event), refreshes the tree without a reload.
 - The live filter still matches projects and folders; a matching project keeps all its files.
-- Later: reveal the active editor's file in the tree, Compile file (`Ctrl+F7`), filtering by file names, the references node.
+- Sync with Active Document, as in Visual Studio: a button in the Projects title (`$(arrow-swap)`, also in the command palette) selects the active editor's file in the tree, expanding its project and filters, and focuses the tree. Nothing follows the editor on its own. A file listed by several projects is shown in the startup project when it lists the file, otherwise in the first one in solution order. A file in no project of the solution, or no file open, gets an information message saying so. When the live filter hides the project, the message offers Clear filter, which clears it and selects the file.
+- Later: Compile file (`Ctrl+F7`), filtering by file names, the references node.
 
 ## 5. Settings file
 
