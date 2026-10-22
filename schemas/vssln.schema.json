@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VS Solution personal workspace settings",
+  "description": "Personal settings of the VS Solution extension for this workspace folder. Not meant to be committed.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "solution": {
+      "type": "string",
+      "description": "Selected solution, relative to the workspace folder. Written by the panel."
+    },
+    "configuration": {
+      "type": "string",
+      "description": "Selected solution configuration as \"Configuration|Platform\". Written by the panel."
+    },
+    "startupProject": {
+      "type": "string",
+      "description": "Startup project name as written in the .sln. Written by the panel."
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Visual Studio and MSBuild location. Found through vswhere when omitted.",
+      "properties": {
+        "vsVersion": {
+          "type": "string",
+          "description": "vswhere version range such as \"[16,17)\", or \"latest\" (default)."
+        },
+        "msbuildPath": {
+          "type": ["string", "null"],
+          "description": "Explicit MSBuild.exe path. Normally not needed."
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Environment variables applied to build, IntelliSense and debug. Part of the IntelliSense cache key."
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "saveBeforeBuild": { "type": "boolean", "default": true, "description": "Save dirty editors before a build." },
+        "buildBeforeDebug": { "type": "boolean", "default": true, "description": "Build the project before starting it." }
+      }
+    },
+    "msbuild": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Extra -p: properties for real builds."
+        },
+        "maxParallelism": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Number of simultaneous MSBuild processes for IntelliSense; 0 means CPU cores / 2."
+        }
+      }
+    },
+    "projects": {
+      "type": "object",
+      "description": "Per-project overrides, keyed by project name. Anything not set comes from MSBuild.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "debug": {
+            "allOf": [{ "$ref": "#/definitions/debug" }],
+            "properties": {
+              "byConfiguration": {
+                "type": "object",
+                "description": "Overrides for one solution configuration, keyed by \"Configuration|Platform\".",
+                "additionalProperties": { "$ref": "#/definitions/debug" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "debug": {
+      "type": "object",
+      "properties": {
+        "program": { "type": ["string", "null"], "description": "Program to start. Default: LocalDebuggerCommand, then TargetPath." },
+        "args": { "type": "array", "items": { "type": "string" }, "description": "Command line arguments." },
+        "cwd": { "type": "string", "description": "Working directory. Default: LocalDebuggerWorkingDirectory, then the project directory." },
+        "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Environment variables for the program." },
+        "console": {
+          "enum": ["integratedTerminal", "externalTerminal", "internalConsole", "newExternalWindow"],
+          "description": "Where the program's console goes."
+        }
+      }
+    }
+  }
+}

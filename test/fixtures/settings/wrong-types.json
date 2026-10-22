@@ -1,0 +1,1 @@
+{"configuration": 5, "environment": {"A": 1, "B": "x"}, "msbuild": {"maxParallelism": "4"}, "startupProject": "Game"}

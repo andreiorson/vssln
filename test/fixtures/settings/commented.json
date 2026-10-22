@@ -1,0 +1,41 @@
+{
+  // current selection — the panel writes these
+  "solution": "src/Engine.sln",            // relative to the workspace folder
+  "configuration": "Release|x64",
+  "startupProject": "Game",                // project name as in the .sln
+
+  // toolchain: optional, vswhere by default
+  "toolchain": {
+    "vsVersion": "[16,17)",                // vswhere version range, or "latest" (default)
+    "msbuildPath": null                    // explicit override, normally not needed
+  },
+
+  // applied to build, IntelliSense and debug; part of the IntelliSense cache key
+  "environment": { "ENGINE_SDK": "${workspaceFolder}/sdk" },
+
+  "build": {
+    "saveBeforeBuild": true,
+    "buildBeforeDebug": true
+  },
+
+  "msbuild": {
+    "properties": { "UseMultiToolTask": "true" },   // extra -p: for real builds
+    "maxParallelism": 0                              // IntelliSense workers, 0 = cores / 2
+  },
+
+  // per-project overrides; anything not set comes from MSBuild
+  "projects": {
+    "Game": {
+      "debug": {
+        "program": null,                   // default: LocalDebuggerCommand, then TargetPath
+        "args": ["--windowed"],
+        "cwd": "${projectDir}",
+        "env": { "LOG_LEVEL": "debug" },
+        "console": "integratedTerminal",
+        "byConfiguration": {
+          "Debug|x64": { "args": ["--windowed", "--validate"] }
+        }
+      }
+    }
+  },
+}
