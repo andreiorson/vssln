@@ -1,3 +1,6 @@
 *.sln -text
 *.vcxproj -text
+*.vcxproj.filters -text
+*.vcxproj.user -text
+*.props -text
 *.csproj -text

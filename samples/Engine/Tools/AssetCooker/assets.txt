@@ -1,0 +1,3 @@
+textures/stone.png
+meshes/crate.obj
+sounds/step.wav
