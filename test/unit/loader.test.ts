@@ -24,6 +24,21 @@ test('loads the fixture workspace with defaults', async () => {
   expect(s.settingsSyntaxOk).toBe(true);
 });
 
+test('project items and filters are loaded', async () => {
+  const s = await loadWorkspace(fixtureDeps());
+  const game = s.projects.get('{11111111-1111-1111-1111-111111111111}')!.items!;
+  expect(game.filters).toEqual(['Source Files', 'Header Files', 'Resource Files']);
+  expect(game.items.map(i => [i.path, i.filter])).toEqual([
+    [path.join(WORKSPACE, 'Game', 'main.cpp'), 'Source Files'],
+    [path.join(WORKSPACE, 'Game', 'src', 'game.cpp'), 'Source Files'],
+    [path.join(WORKSPACE, 'Game', 'src', 'game.h'), 'Header Files'],
+  ]);
+  const math = s.projects.get('{22222222-2222-2222-2222-222222222222}')!.items!;
+  expect(math.filters).toEqual([]);
+  expect(math.items.map(i => i.include)).toEqual(['vector.cpp', 'matrix.cpp', 'quaternion.cpp', 'vector.h', 'matrix.h']);
+  expect(math.items.every(i => i.filter === undefined)).toBe(true);
+});
+
 test('toolchain options come from the settings file', async () => {
   const deps = fixtureDeps({ settings: '{"toolchain": {"vsVersion": "[16,17)"}}' });
   await loadWorkspace(deps);

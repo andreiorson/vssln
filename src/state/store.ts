@@ -1,4 +1,5 @@
 import { VsslnSettings } from '../settings/settings';
+import { ProjectItems } from '../solution/projectItems';
 import { VcxprojScan } from '../solution/projectScan';
 import { ParsedSolution, SolutionConfig } from '../solution/slnParser';
 import { VsInstance } from '../toolchain/vswhere';
@@ -13,6 +14,7 @@ export interface Problem {
 export interface ProjectEntry {
   exists: boolean;
   scan?: VcxprojScan;
+  items?: ProjectItems;
 }
 
 export interface AppState {

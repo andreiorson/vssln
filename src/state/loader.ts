@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { resolveConfiguration, resolveSolutionPath, resolveStartupProject, settingsPath } from '../settings/resolver';
 import { ParsedSettings, parseSettings } from '../settings/settings';
+import { parseProjectItems } from '../solution/projectItems';
 import { scanVcxproj, VcxprojScan } from '../solution/projectScan';
 import { parseSln } from '../solution/slnParser';
 import { ToolchainOptions, ToolchainResult } from '../toolchain/vswhere';
@@ -45,11 +46,15 @@ async function readSettings(deps: LoaderDeps, folder: string): Promise<FolderSet
   return { folder, parsed: parseSettings(text ?? '') };
 }
 
-async function scanProjects(deps: LoaderDeps, absPaths: Map<string, string>): Promise<Map<string, ProjectEntry>> {
+/** Each C++ project's file scan and its items with their filters (from the .vcxproj.filters next to it). */
+async function scanProjects(deps: LoaderDeps, absPaths: Map<string, string>, solutionPath: string): Promise<Map<string, ProjectEntry>> {
   const entries = await Promise.all(
     [...absPaths].map(async ([guid, absPath]): Promise<[string, ProjectEntry]> => {
       const text = (await deps.exists(absPath)) ? await deps.readText(absPath) : undefined;
-      return [guid, text === undefined ? { exists: false } : { exists: true, scan: scanVcxproj(text) }];
+      if (text === undefined) return [guid, { exists: false }];
+      const filtersPath = `${absPath}.filters`;
+      const filters = (await deps.exists(filtersPath)) ? await deps.readText(filtersPath) : undefined;
+      return [guid, { exists: true, scan: scanVcxproj(text), items: parseProjectItems(text, filters, { projectPath: absPath, solutionPath }) }];
     }),
   );
   return new Map(entries);
@@ -94,7 +99,7 @@ export async function loadWorkspace(deps: LoaderDeps): Promise<AppState> {
 
   const cppPaths = new Map(solution.projects.filter(p => p.kind === 'vcxproj').map(p => [p.guid, p.absPath]));
   const [projects, toolchain] = await Promise.all([
-    scanProjects(deps, cppPaths),
+    scanProjects(deps, cppPaths, solutionPath),
     deps.findToolchain({
       ...(settings.toolchain?.vsVersion !== undefined ? { vsVersion: settings.toolchain.vsVersion } : {}),
       ...(settings.toolchain?.msbuildPath !== undefined ? { msbuildPath: settings.toolchain.msbuildPath && settingsPath(settings.toolchain.msbuildPath, chosen.folder, deps.env) } : {}),
