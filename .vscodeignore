@@ -4,5 +4,6 @@
 !schemas/**
 !package.json
 !README.md
+!CHANGELOG.md
 !syntaxes/**
 !resources/**
