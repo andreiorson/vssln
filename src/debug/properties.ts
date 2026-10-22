@@ -37,14 +37,19 @@ export interface DebugPropertiesInput {
 
 /** Evaluates one project in the context a solution build gives it: the Solution* properties and the same -p: values. */
 export function debugPropertiesArgs(input: DebugPropertiesInput): string[] {
-  const { projectPath, config, solutionPath, targetsFile, devEnvDir, properties } = input;
+  return [input.projectPath, '-t:VsslnDebugProperties', '-nologo', '-v:minimal', ...projectContextArgs(input)];
+}
+
+/**
+ * The -p: values that give a single project the context of a solution build (configuration, Solution* properties,
+ * DevEnvDir, msbuild.properties) and hook in our targets file. Values are escaped for MSBuild.
+ */
+export function projectContextArgs(input: DebugPropertiesInput, extra: Record<string, string> = {}): string[] {
+  const { config, solutionPath, targetsFile, devEnvDir, properties } = input;
   const p = (name: string, value: string) => `-p:${name}=${escapeValue(value)}`;
   const ext = path.win32.extname(solutionPath);
   return [
-    projectPath,
-    '-t:VsslnDebugProperties',
-    '-nologo',
-    '-v:minimal',
+    ...Object.entries(extra).map(([k, v]) => p(k, v)),
     p('Configuration', config.configuration),
     p('Platform', config.platform),
     // Project files import solution-level property sheets through $(SolutionDir), which ends with a backslash.

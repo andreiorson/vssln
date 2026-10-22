@@ -1,0 +1,14 @@
+<!--
+  Prints the compiler command lines Visual Studio's IntelliSense uses for a project, through the stock design-time
+  target GetClCommandLines: one ClCommandLines item per option set, with its sources in %(Files). The item with
+  ConfigurationOptions=true holds the project's default options (Visual Studio uses them for headers).
+  <Message> keeps ";" inside values intact, unlike WriteLinesToFile.
+  Run with -t:VsslnIntelliSense and the design-time properties (DesignTimeBuild, BuildingInsideVisualStudio, ...).
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="VsslnIntelliSense" DependsOnTargets="GetProjectDirectories;GetClCommandLines">
+    <Message Importance="High" Text="VSSLN|CL|%(ClCommandLines.ConfigurationOptions)|%(ClCommandLines.Files)|%(ClCommandLines.Identity)" />
+    <Message Importance="High" Text="VSSLN|IncludePath|$(IncludePath)" />
+    <Message Importance="High" Text="VSSLN|ExternalIncludePath|$(ExternalIncludePath)" />
+  </Target>
+</Project>
