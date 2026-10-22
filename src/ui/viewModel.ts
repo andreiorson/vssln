@@ -2,10 +2,11 @@ import * as path from 'path';
 import { TreeNode } from '../solution/model';
 import { ConfigurationType, typeFor } from '../solution/projectScan';
 import { projectConfigFor, SlnProject } from '../solution/slnParser';
+import { BuildState, ProjectBuild } from '../state/build';
 import { AppState, Problem } from '../state/store';
 
 export interface StatusRow {
-  id: 'solution' | 'configuration' | 'startup' | `problem:${number}`;
+  id: 'solution' | 'configuration' | 'startup' | 'build' | `problem:${number}`;
   label: string;
   description?: string;
   tooltip?: string;
@@ -25,12 +26,13 @@ export interface ProjectRow {
 }
 
 export interface Decoration {
-  color?: 'disabledForeground';
+  color?: 'disabledForeground' | 'list.errorForeground' | 'list.warningForeground';
+  badge?: string;
   tooltip?: string;
 }
 
 export interface StatusBarEntry {
-  id: 'configuration' | 'startup';
+  id: 'configuration' | 'startup' | 'build';
   text: string;
   tooltip: string;
   command: string;
@@ -61,6 +63,39 @@ const TYPE_SHORT: Record<ConfigurationType, string> = {
   unknown: '',
 };
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** Elapsed time as m:ss. */
+export function duration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/** Local wall-clock time as HH:MM. */
+export function clock(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function buildRow(b: BuildState, now: number): StatusRow | undefined {
+  if (b.status === 'idle') return undefined;
+  const label = b.projectName ? `${b.action} ${b.projectName}` : (b.action ?? 'Build');
+  const common = { id: 'build' as const, label, tooltip: b.logFile ? `Build log: ${b.logFile}` : undefined, command: 'vssln.showBuildOutput' };
+  const finishedAt = b.finishedAt ?? now;
+  switch (b.status) {
+    case 'running': {
+      const errors = b.errors > 0 ? ` · ${plural(b.errors, 'error')}` : '';
+      return { ...common, icon: 'loading~spin', description: `${b.done}/${b.total} · ${duration(now - (b.startedAt ?? now))}${errors}`, contextValue: 'status.build.running' };
+    }
+    case 'succeeded':
+      return { ...common, icon: 'pass', description: `succeeded · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
+    case 'failed':
+      return { ...common, icon: 'error', description: `failed · ${plural(b.errors, 'error')} · ${clock(finishedAt)}`, contextValue: 'status.build' };
+    case 'cancelled':
+      return { ...common, icon: 'circle-slash', description: `stopped · ${clock(finishedAt)}`, contextValue: 'status.build' };
+  }
+}
+
 function problemRows(s: AppState): StatusRow[] {
   return s.problems.map((p, i) => ({
     id: `problem:${i}` as const,
@@ -72,7 +107,7 @@ function problemRows(s: AppState): StatusRow[] {
   }));
 }
 
-export function statusRows(s: AppState): StatusRow[] {
+export function statusRows(s: AppState, now = Date.now()): StatusRow[] {
   if (s.phase === 'loading') return [];
   if (s.phase === 'failed') return problemRows(s);
   if (s.phase === 'noSolution' || !s.solution) {
@@ -85,11 +120,12 @@ export function statusRows(s: AppState): StatusRow[] {
   const slnDir = path.win32.dirname(s.solution.path);
   const relDir = s.folder ? path.win32.relative(s.folder, slnDir) || '.' : slnDir;
   const startup = s.solution.projects.find(p => p.guid === s.startupProjectGuid);
+  const locked = s.build.status === 'running';
   const rows: StatusRow[] = [
     {
       id: 'solution',
       label: path.win32.basename(s.solution.path),
-      description: relDir,
+      description: locked ? 'locked during build' : relDir,
       tooltip: s.solution.path,
       icon: 'file-code',
       command: 'vssln.selectSolution',
@@ -98,6 +134,7 @@ export function statusRows(s: AppState): StatusRow[] {
     {
       id: 'configuration',
       label: s.configuration ? `${s.configuration.configuration} | ${s.configuration.platform}` : 'None',
+      ...(locked ? { description: 'locked during build' } : {}),
       tooltip: 'Solution configuration',
       icon: 'settings-gear',
       command: 'vssln.selectConfiguration',
@@ -113,7 +150,37 @@ export function statusRows(s: AppState): StatusRow[] {
       contextValue: 'status.startup',
     },
   ];
-  return [...rows, ...problemRows(s)];
+  const build = buildRow(s.build, now);
+  return [...rows, ...(build ? [build] : []), ...problemRows(s)];
+}
+
+function projectBuildDescription(p: ProjectBuild): string {
+  switch (p.status) {
+    case 'waiting':
+    case 'building':
+    case 'skipped':
+      return p.status;
+    case 'succeeded':
+      return `built · ${Math.round(((p.finishedAt ?? 0) - (p.startedAt ?? p.finishedAt ?? 0)) / 1000)}s`;
+    case 'failed':
+      return p.errors > 0 ? plural(p.errors, 'error') : 'failed';
+  }
+}
+
+function descendantsBuilds(node: TreeNode, s: AppState): ProjectBuild[] {
+  return node.children.flatMap(child => {
+    const own = child.project ? s.build.projects.get(child.project.guid) : undefined;
+    return [...(own ? [own] : []), ...descendantsBuilds(child, s)];
+  });
+}
+
+function folderBuildDescription(node: TreeNode, s: AppState): string | undefined {
+  if (s.build.status === 'idle') return undefined;
+  const builds = descendantsBuilds(node, s);
+  const building = builds.filter(b => b.status === 'building').length;
+  if (building > 0) return `building ${building}`;
+  const errors = builds.reduce((n, b) => n + b.errors, 0);
+  return errors > 0 ? plural(errors, 'error') : undefined;
 }
 
 export function projectUri(guid: string): string {
@@ -139,7 +206,8 @@ export function projectStatus(project: SlnProject, s: AppState): ProjectStatus {
 export function projectRow(node: TreeNode, s: AppState): ProjectRow {
   const resourceUri = projectUri(node.id);
   if (node.kind === 'folder' || !node.project) {
-    return { label: node.label, icon: 'folder', contextValue: 'folder', resourceUri, inactive: false };
+    const description = folderBuildDescription(node, s);
+    return { label: node.label, ...(description ? { description } : {}), icon: 'folder', contextValue: 'folder', resourceUri, inactive: false };
   }
 
   const project = node.project;
@@ -157,13 +225,14 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
     };
   }
 
-  const parts = [TYPE_SHORT[status.type], `${status.files} ${status.files === 1 ? 'file' : 'files'}`];
+  const parts = [TYPE_SHORT[status.type], plural(status.files, 'file')];
   if (project.guid === s.startupProjectGuid) parts.push('startup');
+  const build = s.build.projects.get(project.guid);
   return {
     label: node.label,
-    description: parts.filter(Boolean).join(' · '),
-    tooltip: project.absPath,
-    icon: TYPE_ICONS[status.type],
+    description: build ? projectBuildDescription(build) : parts.filter(Boolean).join(' · '),
+    tooltip: build?.messages.length ? `${project.absPath}\n${build.messages.join('\n')}` : project.absPath,
+    icon: build?.status === 'building' ? 'loading~spin' : TYPE_ICONS[status.type],
     contextValue: status.type === 'Application' ? 'project.app' : 'project.lib',
     resourceUri,
     inactive: false,
@@ -174,7 +243,18 @@ export function projectDecoration(uri: string, s: AppState): Decoration | undefi
   const project = s.solution?.projects.find(p => projectUri(p.guid) === uri);
   if (!project) return undefined;
   const status = projectStatus(project, s);
-  return 'inactive' in status ? { color: 'disabledForeground', tooltip: status.inactive } : undefined;
+  if ('inactive' in status) return { color: 'disabledForeground', tooltip: status.inactive };
+  const build = s.build.projects.get(project.guid);
+  if (build?.status === 'failed') {
+    return {
+      color: 'list.errorForeground',
+      // Badges hold at most two characters.
+      badge: build.errors === 0 ? '!' : String(Math.min(build.errors, 99)),
+      tooltip: build.messages[0] ?? 'failed',
+    };
+  }
+  if (build && build.warnings > 0) return { color: 'list.warningForeground' };
+  return undefined;
 }
 
 export function statusBarItems(s: AppState): StatusBarEntry[] {
@@ -186,6 +266,12 @@ export function statusBarItems(s: AppState): StatusBarEntry[] {
   const startup = s.solution?.projects.find(p => p.guid === s.startupProjectGuid);
   if (startup) {
     items.push({ id: 'startup', text: `$(rocket) ${startup.name}`, tooltip: 'Startup project', command: 'vssln.selectStartupProject' });
+  }
+  const b = s.build;
+  if (b.status === 'running') {
+    items.push({ id: 'build', text: `$(sync~spin) Building ${b.done}/${b.total}`, tooltip: 'Build in progress', command: 'vssln.showBuildOutput' });
+  } else if (b.status === 'failed') {
+    items.push({ id: 'build', text: `$(error) ${b.errors}`, tooltip: `Build failed: ${plural(b.errors, 'error')}`, command: 'workbench.actions.view.problems' });
   }
   return items;
 }
