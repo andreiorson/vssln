@@ -3,21 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VsslnApi } from '../../src/extension';
+import { api, guidOf, waitFor, writeSettings } from './helpers';
 import { projectUri } from '../../src/ui/viewModel';
-
-async function waitFor(condition: () => boolean, timeoutMs: number): Promise<void> {
-  const start = Date.now();
-  while (!condition()) {
-    if (Date.now() - start > timeoutMs) throw new Error(`condition not met in ${timeoutMs} ms`);
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
-}
-
-async function api(): Promise<VsslnApi> {
-  const a = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
-  await waitFor(() => a.getState().phase === 'ready', 30000);
-  return a;
-}
 
 /** Starts a build without the confirmation dialog and returns once it is running. */
 async function startBuild(a: VsslnApi, action: 'Build' | 'Rebuild' | 'Clean'): Promise<{ done: Promise<unknown> }> {
@@ -29,22 +16,7 @@ async function startBuild(a: VsslnApi, action: 'Build' | 'Rebuild' | 'Clean'): P
   return { done };
 }
 
-/** Writes vssln.json; Windows briefly refuses to recreate a folder that was just deleted while being watched. */
-async function writeSettings(dir: string, text: string): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, 'vssln.json'), text);
-      return;
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EPERM' || attempt >= 20) throw e;
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  }
-}
-
 const finished = (a: VsslnApi) => () => !['idle', 'running'].includes(a.getState().build.status);
-const guidOf = (a: VsslnApi, name: string) => a.getState().solution!.projects.find(p => p.name === name)!.guid;
 
 suite('build samples/Engine', () => {
   const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
