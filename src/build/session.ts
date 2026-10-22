@@ -1,9 +1,9 @@
 import * as path from 'path';
-import { expandVariables } from '../settings/resolver';
 import { applyBuildEvent, BuildState, counts, expectedProjects, finishBuild, startBuild } from '../state/build';
 import { Store } from '../state/store';
 import { samePath } from '../util/paths';
 import { BuildRequest, buildArgs } from './args';
+import { msbuildEnvironment, withTrailingBackslash } from './environment';
 import { BuildEvent, OutputParser } from './outputParser';
 import { BuildRunner } from './runner';
 
@@ -25,17 +25,6 @@ export type SessionResult = { started: false; reason: string } | { started: true
 
 export const NO_TOOLCHAIN = 'Visual Studio with MSBuild was not found. Use Configure toolchain to set it up.';
 
-/** Variables of the VS Code extension host that must not leak into MSBuild and the tools it runs. */
-function isEditorVariable(name: string): boolean {
-  return name === 'ELECTRON_RUN_AS_NODE' || name.startsWith('VSCODE_');
-}
-
-/** Sets a variable the way Windows reads it: names are case-insensitive, so other spellings are removed first. */
-function setVariable(env: Record<string, string | undefined>, name: string, value: string): void {
-  for (const key of Object.keys(env)) if (key.toLowerCase() === name.toLowerCase()) delete env[key];
-  env[name] = value;
-}
-
 /** The reason a build cannot start now, or undefined when it can. */
 export function cannotBuild(s: Store['state'], runner: BuildRunner): string | undefined {
   if (s.phase === 'loading') return 'The solution is still loading.';
@@ -54,17 +43,7 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   const config = s.configuration!;
   const toolchain = s.toolchain!;
 
-  const folder = s.folder ?? sln.dir;
-  const env: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(deps.env)) if (!isEditorVariable(key)) env[key] = value;
-  for (const [key, value] of Object.entries(s.settings.environment ?? {})) {
-    const expanded = expandVariables(value, { workspaceFolder: folder, solutionDir: sln.dir, configuration: config.configuration, platform: config.platform, env: deps.env });
-    setVariable(env, key, expanded.value);
-  }
-  // The output parser reads English messages: MSBuild takes its language from DOTNET_CLI_UI_LANGUAGE (which also
-  // switches its console to UTF-8, keeping non-ASCII paths intact), cl.exe and link.exe from VSLANG.
-  setVariable(env, 'DOTNET_CLI_UI_LANGUAGE', 'en-US');
-  setVariable(env, 'VSLANG', '1033');
+  const env = msbuildEnvironment({ settings: s.settings, folder: s.folder ?? sln.dir, solutionDir: withTrailingBackslash(sln.dir), configuration: config }, deps.env);
 
   const logFile = path.win32.join(deps.logDir, 'build.log');
   const args = buildArgs({ sln, config, toolchain, request, properties: s.settings.msbuild?.properties ?? {}, logFile });

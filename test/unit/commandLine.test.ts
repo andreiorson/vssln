@@ -32,6 +32,22 @@ test('a doubled quote inside quotes is a literal quote', () => {
   expect(splitCommandLine('"a""b" c')).toEqual(['a"b', 'c']);
 });
 
+test('a doubled quote inside quotes stays in quotes (MSVC runtime since 2008, not CommandLineToArgvW)', () => {
+  expect(splitCommandLine('"a""b c"')).toEqual(['a"b c']);
+});
+
+test('%VAR% follows ExpandEnvironmentStrings: an unknown name leaves its closing % to open the next one', () => {
+  const env = { PATHX: 'p', 'My Var': 'sp' };
+  expect(expandPercent('%NOPE%PATHX%', env)).toBe('%NOPEp');
+  expect(expandPercent('%My Var%', env)).toBe('sp');
+  expect(expandPercent('%%', env)).toBe('%%');
+  expect(expandPercent('50%', env)).toBe('50%');
+});
+
+test('environment lines read earlier lines whatever the case of their names', () => {
+  expect(applyEnvironmentLines(['PATH=a;%PATH%', 'PATH=b;%path%'], { Path: 'proc' })).toEqual({ PATH: 'b;a;proc' });
+});
+
 test('%VAR% expands case-insensitively; unknown variables stay literal', () => {
   const env = { Path: 'C:\\bin', HOME: 'C:\\h' };
   expect(expandPercent('%PATH%;C:\\tools', env)).toBe('C:\\bin;C:\\tools');

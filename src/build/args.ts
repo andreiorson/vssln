@@ -39,7 +39,7 @@ export function solutionTargetName(sln: ParsedSolution, project: SlnProject): st
 }
 
 /** MSBuild splits -p: values on ';' and ','; its %XX escapes keep them whole. */
-function escapeValue(value: string): string {
+export function escapeValue(value: string): string {
   return value.replace(/%/g, '%25').replace(/;/g, '%3B').replace(/,/g, '%2C');
 }
 

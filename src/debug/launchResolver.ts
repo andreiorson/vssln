@@ -1,12 +1,16 @@
+import * as path from 'path';
 import { expandVariables, VariableContext } from '../settings/resolver';
 import { DebugSettings, VsslnSettings } from '../settings/settings';
 import { SlnProject, SolutionConfig } from '../solution/slnParser';
-import { samePath } from '../util/paths';
+import { Env, envLookup, setVariable, withVariables } from '../util/env';
 import { applyEnvironmentLines, splitCommandLine } from './commandLine';
 import { DebugProperties } from './properties';
 
 /** Console programs write to the Debug Console by default, so no terminal opens per launch. */
 export const DEFAULT_CONSOLE = 'internalConsole';
+
+/** What Windows can start directly; anything else (a .dll, a .lib) needs a host program. */
+const RUNNABLE = /\.(exe|com|bat|cmd)$/i;
 
 export interface LaunchInput {
   project: SlnProject;
@@ -16,7 +20,7 @@ export interface LaunchInput {
   workspaceFolder: string;
   solutionDir: string;
   /** The environment the debugger inherits. */
-  env: Record<string, string | undefined>;
+  env: Env;
   noDebug: boolean;
   /** Values of a launch.json entry of type vssln, which win over everything else. */
   overrides?: { program?: string; args?: string[]; cwd?: string; env?: Record<string, string>; console?: string };
@@ -29,6 +33,7 @@ export interface CppvsdbgConfiguration {
   program: string;
   args: string[];
   cwd: string;
+  /** Only the variables that differ from the inherited environment, in the inherited spelling of their names. */
   environment: { name: string; value: string }[];
   console: string;
   noDebug?: boolean;
@@ -42,18 +47,6 @@ function find<T>(record: Record<string, T> | undefined, name: string): T | undef
   return key === undefined ? undefined : record[key];
 }
 
-function lookup(env: Record<string, string | undefined>, name: string): string | undefined {
-  const key = Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase());
-  return key === undefined ? undefined : env[key];
-}
-
-/** Sets a variable the way Windows reads it: other spellings of the name are replaced. */
-function setVariable(env: Record<string, string>, name: string, value: string): void {
-  const existing = Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase());
-  if (existing !== undefined && existing !== name) delete env[existing];
-  env[name] = value;
-}
-
 /** The project's debug settings with the entry for the current configuration applied on top. */
 function debugSettings(settings: VsslnSettings, project: SlnProject, config: SolutionConfig): DebugSettings {
   const debug = find(settings.projects, project.name)?.debug ?? {};
@@ -61,9 +54,15 @@ function debugSettings(settings: VsslnSettings, project: SlnProject, config: Sol
   return { ...rest, ...(find(byConfiguration, config.name) ?? {}) };
 }
 
+/** An empty string counts as not set. */
+function given(value: string | undefined): string | undefined {
+  return value === undefined || value === '' ? undefined : value;
+}
+
 /**
  * The cppvsdbg configuration for a project: MSBuild values (including .vcxproj.user), then vssln.json, then the
- * configuration entry, then a launch.json entry. The environment lists only what differs from the inherited one.
+ * configuration entry, then a launch.json entry. Relative paths of the settings and launch.json are resolved against
+ * the workspace folder, those of MSBuild against the project directory.
  */
 export function resolveLaunch(input: LaunchInput): LaunchResult {
   const { project, config, settings, properties: props, env, overrides = {} } = input;
@@ -78,34 +77,39 @@ export function resolveLaunch(input: LaunchInput): LaunchResult {
     env,
   };
   const expand = (value: string) => expandVariables(value, ctx).value;
+  const fromSettings = (value: string | undefined) => (given(value) ? path.win32.resolve(input.workspaceFolder, expand(value!)) : undefined);
+  const fromOverrides = (value: string | undefined) => (given(value) ? path.win32.resolve(input.workspaceFolder, value!) : undefined);
+  const fromMsbuild = (value: string) => (given(value) ? path.win32.resolve(props.projectDir || input.workspaceFolder, value) : undefined);
 
-  const explicitProgram = overrides.program ?? (debug.program ? expand(debug.program) : undefined);
-  const msbuildProgram = props.command || props.targetPath;
-  if (!explicitProgram && props.configurationType !== 'Application' && samePath(msbuildProgram, props.targetPath)) {
+  const program = fromOverrides(overrides.program) ?? fromSettings(debug.program ?? undefined) ?? fromMsbuild(props.command) ?? fromMsbuild(props.targetPath) ?? '';
+  if (!RUNNABLE.test(program)) {
+    const kind = props.configurationType || 'project';
     return {
-      problem: `${project.name} is a ${props.configurationType || 'project without a program'}; set "program" for it in vssln.json (projects.${project.name}.debug.program).`,
+      problem: `${project.name} is a ${kind} and ${path.win32.basename(program) || 'its output'} cannot be started; set "program" for it in vssln.json (projects.${project.name}.debug.program).`,
       action: 'openSettings',
     };
   }
 
-  const environment: Record<string, string> = {};
-  for (const [k, v] of Object.entries(settings.environment ?? {})) setVariable(environment, k, expand(v));
-  const fromUserFile = applyEnvironmentLines(props.environment, { ...env, ...environment });
-  for (const [k, v] of Object.entries(fromUserFile)) setVariable(environment, k, v);
-  for (const [k, v] of Object.entries(debug.env ?? {})) setVariable(environment, k, expand(v));
-  for (const [k, v] of Object.entries(overrides.env ?? {})) setVariable(environment, k, v);
+  const settingsEnv: Env = {};
+  for (const [k, v] of Object.entries(settings.environment ?? {})) setVariable(settingsEnv, k, expand(v));
+  const fromUserFile = applyEnvironmentLines(props.environment, withVariables(env, settingsEnv));
+  const debugEnv: Env = {};
+  for (const [k, v] of Object.entries(debug.env ?? {})) setVariable(debugEnv, k, expand(v));
+  const changes = withVariables({}, settingsEnv, fromUserFile, debugEnv, overrides.env ?? {});
+
+  const environment = Object.entries(changes)
+    .filter(([name, value]) => envLookup(env, name) !== value)
+    .map(([name, value]) => ({ name: Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase()) ?? name, value }));
 
   const launch: CppvsdbgConfiguration = {
     type: 'cppvsdbg',
     request: 'launch',
     name: `${input.noDebug ? 'Run' : 'Debug'} ${project.name}`,
-    program: explicitProgram ?? msbuildProgram,
+    program,
     args: overrides.args ?? debug.args?.map(expand) ?? splitCommandLine(props.arguments),
-    cwd: overrides.cwd ?? (debug.cwd ? expand(debug.cwd) : undefined) ?? (props.workingDirectory || props.projectDir),
-    environment: Object.entries(environment)
-      .filter(([k, v]) => lookup(env, k) !== v)
-      .map(([name, value]) => ({ name, value })),
-    console: overrides.console ?? debug.console ?? DEFAULT_CONSOLE,
+    cwd: fromOverrides(overrides.cwd) ?? fromSettings(debug.cwd) ?? fromMsbuild(props.workingDirectory) ?? fromMsbuild(props.projectDir) ?? input.workspaceFolder,
+    environment,
+    console: given(overrides.console) ?? debug.console ?? DEFAULT_CONSOLE,
     ...(input.noDebug ? { noDebug: true } : {}),
   };
   return { config: launch };

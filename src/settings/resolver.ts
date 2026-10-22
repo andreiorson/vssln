@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { typeFor, VcxprojScan } from '../solution/projectScan';
 import { ParsedSolution, projectConfigFor, SlnProject, SolutionConfig } from '../solution/slnParser';
+import { envLookup } from '../util/env';
 import { samePath } from '../util/paths';
 import { VsslnSettings } from './settings';
 
@@ -16,18 +17,11 @@ export interface VariableContext {
 
 const CONTEXT_VARIABLES = ['workspaceFolder', 'solutionDir', 'projectDir', 'targetPath', 'configuration', 'platform'] as const;
 
-/** Environment variable names are case-insensitive on Windows. */
-function envValue(env: Record<string, string | undefined>, name: string): string | undefined {
-  if (env[name] !== undefined) return env[name];
-  const key = Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase());
-  return key === undefined ? undefined : env[key];
-}
-
 /** Expands ${name} and ${env:NAME}; unknown or unset context variables stay literal and are listed. */
 export function expandVariables(value: string, ctx: VariableContext): { value: string; unknown: string[] } {
   const unknown: string[] = [];
   const expanded = value.replace(/\$\{([^}]+)\}/g, (whole, name: string) => {
-    if (name.startsWith('env:')) return envValue(ctx.env, name.slice(4)) ?? '';
+    if (name.startsWith('env:')) return envLookup(ctx.env, name.slice(4)) ?? '';
     const known = (CONTEXT_VARIABLES as readonly string[]).includes(name)
       ? ctx[name as (typeof CONTEXT_VARIABLES)[number]]
       : undefined;

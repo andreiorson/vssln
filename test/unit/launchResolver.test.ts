@@ -40,11 +40,13 @@ test('MSBuild values from the project and its .vcxproj.user', () => {
     name: 'Debug Game',
     program: 'C:\\src\\Engine\\out\\x64\\Release\\Game.exe',
     args: ['--level', 'two words', '--x=1'],
-    cwd: 'C:\\src\\Engine\\out\\x64\\Release\\',
+    cwd: 'C:\\src\\Engine\\out\\x64\\Release',
     environment: [
       { name: 'GAME_MODE', value: 'sample' },
-      { name: 'PATH', value: 'C:\\src\\Engine\\tools;C:\\bin' },
+      // The inherited spelling of the name: cppvsdbg and Windows see one variable.
+      { name: 'Path', value: 'C:\\src\\Engine\\tools;C:\\bin' },
       { name: 'EMPTY', value: '' },
+      { name: 'NINJA', value: 'C:\\ninja\\bin;D:\\new' },
     ],
     console: DEFAULT_CONSOLE,
   });
@@ -79,8 +81,9 @@ test('settings override MSBuild, the configuration entry overrides the project e
   expect(c.environment).toEqual([
     { name: 'SDK', value: 'C:\\src\\sdk' },
     { name: 'GAME_MODE', value: 'test' },
-    { name: 'PATH', value: 'C:\\src\\Engine\\tools;C:\\bin' },
+    { name: 'Path', value: 'C:\\src\\Engine\\tools;C:\\bin' },
     { name: 'EMPTY', value: '' },
+    { name: 'NINJA', value: 'C:\\ninja\\bin;D:\\new' },
   ]);
 });
 
@@ -99,7 +102,7 @@ test('launch.json values win over everything', () => {
 
 test('a library without a program to start is explained', () => {
   const r = resolveLaunch(input({ project: project('Audio'), properties: audioProps }));
-  expect(r).toEqual({ problem: 'Audio is a DynamicLibrary; set "program" for it in vssln.json (projects.Audio.debug.program).', action: 'openSettings' });
+  expect(r).toEqual({ problem: 'Audio is a DynamicLibrary and Audio.dll cannot be started; set "program" for it in vssln.json (projects.Audio.debug.program).', action: 'openSettings' });
 });
 
 test('a library with a host program starts the host', () => {
@@ -109,6 +112,29 @@ test('a library with a host program starts the host', () => {
   expect(fromUserFile.program).toBe('C:\\host\\Host.exe');
 });
 
+test('relative paths: settings and launch.json from the workspace folder, MSBuild values from the project directory', () => {
+  expect(config({ settings: { projects: { Game: { debug: { program: 'tools\\host.exe', cwd: 'data' } } } } })).toMatchObject({
+    program: 'C:\\src\\tools\\host.exe', cwd: 'C:\\src\\data',
+  });
+  expect(config({ overrides: { program: 'bin\\x.exe', cwd: '.' } })).toMatchObject({ program: 'C:\\src\\bin\\x.exe', cwd: 'C:\\src' });
+  expect(config({ properties: { ...gameProps, command: '..\\out\\Game.exe', workingDirectory: '..\\data' } })).toMatchObject({
+    program: 'C:\\src\\Engine\\out\\Game.exe', cwd: 'C:\\src\\Engine\\data',
+  });
+});
+
+test('empty launch.json strings count as not set', () => {
+  expect(config({ overrides: { program: '', cwd: '' } })).toMatchObject({
+    program: 'C:\\src\\Engine\\out\\x64\\Release\\Game.exe', cwd: 'C:\\src\\Engine\\out\\x64\\Release',
+  });
+});
+
+test('whether a project can start depends on its program, not its type', () => {
+  const makefile = { ...gameProps, configurationType: 'Makefile', targetPath: 'C:\\src\\out\\tool.exe', command: 'C:\\src\\out\\tool.exe' };
+  expect(config({ properties: makefile }).program).toBe('C:\\src\\out\\tool.exe');
+  const script = { ...gameProps, configurationType: 'Utility', targetPath: 'C:\\src\\gen.cmd', command: 'C:\\src\\gen.cmd' };
+  expect(config({ properties: script }).program).toBe('C:\\src\\gen.cmd');
+});
+
 test('an empty working directory falls back to the project directory', () => {
-  expect(config({ properties: { ...gameProps, workingDirectory: '' } }).cwd).toBe('C:\\src\\Engine\\Game\\');
+  expect(config({ properties: { ...gameProps, workingDirectory: '' } }).cwd).toBe('C:\\src\\Engine\\Game');
 });

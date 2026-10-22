@@ -1,7 +1,10 @@
+import { Env, envLookup, setVariable, withVariables } from '../util/env';
+
 /**
- * Splits a command line the way Windows programs receive it (CommandLineToArgvW / the MSVC runtime):
- * whitespace separates arguments, quotes group them, 2n backslashes before a quote give n backslashes,
- * 2n+1 give n backslashes and a literal quote, and "" inside quotes is a literal quote.
+ * Splits a command line the way a program built with the MSVC runtime (2008 and later) receives argv: whitespace
+ * separates arguments, quotes group them, 2n backslashes before a quote give n backslashes, 2n+1 give n backslashes
+ * and a literal quote, and "" inside quotes is a literal quote that stays in quotes. CommandLineToArgvW differs in
+ * the last rule ("a""b c" is a"b c here, a"b and c there); this follows the runtime, which C++ programs use.
  */
 export function splitCommandLine(line: string): string[] {
   const args: string[] = [];
@@ -53,26 +56,45 @@ export function splitCommandLine(line: string): string[] {
   return args;
 }
 
-function lookup(env: Record<string, string | undefined>, name: string): string | undefined {
-  if (env[name] !== undefined) return env[name];
-  const key = Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase());
-  return key === undefined ? undefined : env[key];
-}
-
-/** Expands %NAME% the way Visual Studio does for the debugger environment; unknown names stay as they are. */
-export function expandPercent(value: string, env: Record<string, string | undefined>): string {
-  return value.replace(/%([^%=\s]+)%/g, (whole, name: string) => lookup(env, name) ?? whole);
+/**
+ * Expands %NAME% like Windows' ExpandEnvironmentStrings, which Visual Studio uses for the debugger environment:
+ * names may contain spaces, and when a name is unknown its closing % is kept to open the next reference.
+ */
+export function expandPercent(value: string, env: Env): string {
+  let out = '';
+  let i = 0;
+  while (i < value.length) {
+    if (value[i] !== '%') {
+      out += value[i++];
+      continue;
+    }
+    const close = value.indexOf('%', i + 1);
+    if (close < 0) {
+      out += value.slice(i);
+      break;
+    }
+    const name = value.slice(i + 1, close);
+    const known = name ? envLookup(env, name) : undefined;
+    if (known !== undefined) {
+      out += known;
+      i = close + 1;
+    } else {
+      out += `%${name}`;
+      i = close;
+    }
+  }
+  return out;
 }
 
 /** Applies NAME=value lines in order: each value sees the inherited variables and the lines before it. */
-export function applyEnvironmentLines(lines: string[], base: Record<string, string | undefined>): Record<string, string> {
-  const result: Record<string, string> = {};
+export function applyEnvironmentLines(lines: string[], base: Env): Record<string, string> {
+  const result: Env = {};
   for (const line of lines) {
     const eq = line.indexOf('=');
     if (eq <= 0) continue;
     const name = line.slice(0, eq).trim();
     if (!name) continue;
-    result[name] = expandPercent(line.slice(eq + 1), { ...base, ...result });
+    setVariable(result, name, expandPercent(line.slice(eq + 1), withVariables(base, result)));
   }
-  return result;
+  return result as Record<string, string>;
 }

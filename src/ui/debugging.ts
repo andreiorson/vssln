@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { debugPropertiesArgs, evaluateDebugProperties } from '../debug/properties';
 import { LaunchInput, LaunchResult, resolveLaunch } from '../debug/launchResolver';
-import { expandVariables } from '../settings/resolver';
+import { msbuildEnvironment, withTrailingBackslash } from '../build/environment';
 import { TreeNode } from '../solution/model';
 import { projectConfigFor, SlnProject } from '../solution/slnParser';
 import { Store } from '../state/store';
@@ -40,11 +40,18 @@ export class Debugging implements vscode.DebugConfigurationProvider {
     const mapping = projectConfigFor(s.solution, project.guid, s.configuration.name);
     if (!mapping) return { problem: `${project.name} is not in ${s.configuration.name}.` };
 
-    // The same environment as builds: property sheets may read the variables of vssln.json.
-    const env: Record<string, string | undefined> = { ...process.env };
+    // The same MSBuild context as builds, so the evaluated TargetPath is the program the build produced.
     const folder = s.folder ?? s.solution.dir;
-    for (const [k, v] of Object.entries(s.settings.environment ?? {})) env[k] = expandVariables(v, { workspaceFolder: folder, env: process.env }).value;
-    const args = debugPropertiesArgs(project.absPath, mapping, s.solution.dir, this.targetsFile, s.toolchain.devEnvDir);
+    const solutionDir = withTrailingBackslash(s.solution.dir);
+    const env = msbuildEnvironment({ settings: s.settings, folder, solutionDir, configuration: s.configuration }, process.env);
+    const args = debugPropertiesArgs({
+      projectPath: project.absPath,
+      config: mapping,
+      solutionPath: s.solution.path,
+      targetsFile: this.targetsFile,
+      devEnvDir: s.toolchain.devEnvDir,
+      properties: s.settings.msbuild?.properties ?? {},
+    });
     const evaluated = await evaluateDebugProperties({ exec: envExec, msbuildPath: s.toolchain.msbuildPath, env }, args);
     if (!evaluated.properties) return { problem: evaluated.problem ?? 'Reading the launch settings failed.' };
 
@@ -54,7 +61,7 @@ export class Debugging implements vscode.DebugConfigurationProvider {
       settings: s.settings,
       properties: evaluated.properties,
       workspaceFolder: folder,
-      solutionDir: s.solution.dir,
+      solutionDir,
       env: process.env,
       noDebug,
       ...(overrides ? { overrides } : {}),

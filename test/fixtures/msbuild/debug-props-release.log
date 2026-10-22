@@ -2,8 +2,7 @@
   VSSLN|LocalDebuggerCommand|C:\src\Engine\out\x64\Release\Game.exe
   VSSLN|LocalDebuggerCommandArguments|--level "two words" --x=1
   VSSLN|LocalDebuggerWorkingDirectory|C:\src\Engine\out\x64\Release\
-  VSSLN|LocalDebuggerEnvironment|GAME_MODE=sample\nPATH=C:\src\Engine\tools;%PATH%\nEMPTY=
+  VSSLN|LocalDebuggerEnvironment|GAME_MODE=sample|VSSLN-EOL|PATH=C:\src\Engine\tools;%PATH%|VSSLN-EOL|EMPTY=|VSSLN-EOL|NINJA=C:\ninja\bin;D:\new
   VSSLN|LocalDebuggerMergeEnvironment|false
-  VSSLN|DebuggerFlavor|WindowsLocalDebugger
   VSSLN|ProjectDir|C:\src\Engine\Game\
   VSSLN|ConfigurationType|Application
