@@ -11,6 +11,10 @@ export interface StatusRow {
   description?: string;
   tooltip?: string;
   icon: string;
+  /** Theme color id for the icon. */
+  iconColor?: string;
+  /** Lets the decoration provider color the label (scheme vssln-status). */
+  resourceUri?: string;
   command?: string;
   contextValue: string;
 }
@@ -20,13 +24,15 @@ export interface ProjectRow {
   description?: string;
   tooltip?: string;
   icon: string;
+  /** Theme color id for the icon. */
+  iconColor?: string;
   contextValue: string;
   resourceUri: string;
   inactive: boolean;
 }
 
 export interface Decoration {
-  color?: 'disabledForeground' | 'list.errorForeground' | 'list.warningForeground';
+  color?: 'disabledForeground' | 'list.errorForeground' | 'list.warningForeground' | 'testing.iconPassed';
   badge?: string;
   tooltip?: string;
 }
@@ -36,7 +42,18 @@ export interface StatusBarEntry {
   text: string;
   tooltip: string;
   command: string;
+  /** Theme color id for the text. */
+  color?: string;
+  /** The only backgrounds VS Code lets extensions use on status bar items. */
+  background?: 'statusBarItem.errorBackground' | 'statusBarItem.warningBackground';
 }
+
+/** Theme colors of build results; theme-aware, so they work in light and dark themes. */
+const PASSED = 'testing.iconPassed';
+const FAILED = 'testing.iconFailed';
+const RUNNING = 'charts.blue';
+const WARNING = 'list.warningForeground';
+export const STATUS_BUILD_URI = 'vssln-status:/build';
 
 const PROBLEM_COMMANDS: Record<NonNullable<Problem['action']>, string> = {
   configureToolchain: 'vssln.configureToolchain',
@@ -85,12 +102,12 @@ function buildRow(b: BuildState, now: number): StatusRow | undefined {
   switch (b.status) {
     case 'running': {
       const errors = b.errors > 0 ? ` · ${plural(b.errors, 'error')}` : '';
-      return { ...common, icon: 'loading~spin', description: `${b.done}/${b.total} · ${duration(now - (b.startedAt ?? now))}${errors}`, contextValue: 'status.build.running' };
+      return { ...common, icon: 'loading~spin', iconColor: RUNNING, description: `${b.done}/${b.total} · ${duration(now - (b.startedAt ?? now))}${errors}`, contextValue: 'status.build.running' };
     }
     case 'succeeded':
-      return { ...common, icon: 'pass', description: `succeeded · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
+      return { ...common, icon: 'pass', iconColor: PASSED, resourceUri: STATUS_BUILD_URI, description: `succeeded · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
     case 'failed':
-      return { ...common, icon: 'error', description: `failed · ${plural(b.errors, 'error')} · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
+      return { ...common, icon: 'error', iconColor: FAILED, resourceUri: STATUS_BUILD_URI, description: `failed · ${plural(b.errors, 'error')} · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
     case 'cancelled':
       return { ...common, icon: 'circle-slash', description: `stopped · ${clock(finishedAt)}`, contextValue: 'status.build' };
   }
@@ -184,6 +201,27 @@ function folderBuildDescription(node: TreeNode, s: AppState): string | undefined
   return errors > 0 ? plural(errors, 'error') : undefined;
 }
 
+/** Label color of the Build row: green after success, red after failure. */
+export function statusDecoration(uri: string, s: AppState): Decoration | undefined {
+  if (uri !== STATUS_BUILD_URI) return undefined;
+  if (s.build.status === 'succeeded') return { color: PASSED };
+  if (s.build.status === 'failed') return { color: 'list.errorForeground' };
+  return undefined;
+}
+
+function projectIconColor(build: ProjectBuild | undefined): string | undefined {
+  switch (build?.status) {
+    case 'building':
+      return RUNNING;
+    case 'succeeded':
+      return build.warnings > 0 ? WARNING : PASSED;
+    case 'failed':
+      return FAILED;
+    default:
+      return undefined;
+  }
+}
+
 export function projectUri(guid: string): string {
   return 'vssln-project:/' + guid.replace(/[{}]/g, '').toLowerCase();
 }
@@ -246,6 +284,7 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
     description: build ? projectBuildDescription(build, s.build.action) : parts.filter(Boolean).join(' · '),
     tooltip: build?.messages.length ? `${project.absPath}\n${build.messages.join('\n')}` : project.absPath,
     icon: build?.status === 'building' ? 'loading~spin' : TYPE_ICONS[status.type],
+    ...(projectIconColor(build) ? { iconColor: projectIconColor(build) } : {}),
     contextValue: status.type === 'Application' ? 'project.app' : 'project.lib',
     resourceUri,
     inactive: false,
@@ -267,6 +306,7 @@ export function projectDecoration(uri: string, s: AppState): Decoration | undefi
       tooltip: build.messages[0] ?? 'failed',
     };
   }
+  if (build?.status === 'skipped') return { color: 'disabledForeground', tooltip: 'skipped' };
   if (build && build.warnings > 0) return { color: 'list.warningForeground' };
   return undefined;
 }
@@ -285,7 +325,16 @@ export function statusBarItems(s: AppState): StatusBarEntry[] {
   if (b.status === 'running') {
     items.push({ id: 'build', text: `$(sync~spin) Building ${b.done}/${b.total}${b.errors > 0 ? ` · $(error) ${b.errors}` : ''}`, tooltip: 'Build in progress', command: 'vssln.showBuildOutput' });
   } else if (b.status === 'failed') {
-    items.push({ id: 'build', text: `$(error) ${b.errors}`, tooltip: `Build failed: ${plural(b.errors, 'error')}`, command: 'workbench.actions.view.problems' });
+    items.push({
+      id: 'build', text: `$(error) ${plural(b.errors, 'error')}`, tooltip: `Build failed: ${plural(b.errors, 'error')}`,
+      command: 'workbench.actions.view.problems', background: 'statusBarItem.errorBackground',
+    });
+  } else if (b.status === 'succeeded') {
+    const finishedAt = b.finishedAt ?? 0;
+    items.push({
+      id: 'build', text: `$(check) Built ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, tooltip: `Build succeeded at ${clock(finishedAt)}`,
+      command: 'vssln.showBuildOutput', color: PASSED,
+    });
   }
   return items;
 }

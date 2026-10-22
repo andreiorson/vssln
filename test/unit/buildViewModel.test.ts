@@ -3,7 +3,7 @@ import { BuildEvent } from '../../src/build/outputParser';
 import { applyBuildEvent, BuildState, finishBuild, startBuild } from '../../src/state/build';
 import { buildTree, TreeNode } from '../../src/solution/model';
 import { AppState } from '../../src/state/store';
-import { clock, duration, projectDecoration, projectRow, projectUri, statusBarItems, statusRows } from '../../src/ui/viewModel';
+import { clock, duration, projectDecoration, projectRow, projectUri, statusBarItems, statusDecoration, statusRows } from '../../src/ui/viewModel';
 import { loadFixtureState } from './helpers';
 
 let s: AppState;
@@ -118,7 +118,7 @@ test('folder summaries', () => {
 });
 
 test('decorations for failed and warning projects', () => {
-  const st = withBuild(build([error('Math', 'first'), error('Math'), finished('Math', true), finished('Render', true), warning('Game')], { exitCode: 1, cancelled: false }));
+  const st = withBuild(build([error('Math', 'first'), error('Math'), finished('Math', true), finished('Render', true), warning('Game'), finished('Game')], { exitCode: 1, cancelled: false }));
   expect(projectDecoration(projectUri(project('Math').guid), st)).toEqual({ color: 'list.errorForeground', badge: '2', tooltip: 'first' });
   expect(projectDecoration(projectUri(project('Render').guid), st)).toEqual({ color: 'list.errorForeground', badge: '!', tooltip: 'failed' });
   expect(projectDecoration(projectUri(project('Game').guid), st)).toEqual({ color: 'list.warningForeground' });
@@ -137,6 +137,43 @@ test('status bar build entry', () => {
   const runningWithErrors = withBuild(build([started('Math'), error('Math'), error('Math')]));
   expect(statusBarItems(runningWithErrors).find(i => i.id === 'build')!.text).toBe('$(sync~spin) Building 0/3 · $(error) 2');
   const failed = withBuild(build([error('Math'), error('Game')], { exitCode: 1, cancelled: false }));
-  expect(statusBarItems(failed).find(i => i.id === 'build')).toEqual({ id: 'build', text: '$(error) 2', tooltip: 'Build failed: 2 errors', command: 'workbench.actions.view.problems' });
-  expect(statusBarItems(withBuild(build([], { exitCode: 0, cancelled: false }))).find(i => i.id === 'build')).toBeUndefined();
+  expect(statusBarItems(failed).find(i => i.id === 'build')).toEqual({
+    id: 'build', text: '$(error) 2 errors', tooltip: 'Build failed: 2 errors', command: 'workbench.actions.view.problems', background: 'statusBarItem.errorBackground',
+  });
+  const ok = withBuild(build([], { exitCode: 0, cancelled: false }));
+  expect(statusBarItems(ok).find(i => i.id === 'build')).toEqual({
+    id: 'build', text: '$(check) Built 1:05', tooltip: `Build succeeded at ${clock(66_000)}`, command: 'vssln.showBuildOutput', color: 'testing.iconPassed',
+  });
+  expect(statusBarItems(withBuild(build([], { exitCode: null, cancelled: true }))).find(i => i.id === 'build')).toBeUndefined();
+});
+
+test('build row colors', () => {
+  expect(buildRow(withBuild(build([])), 1_000)).toMatchObject({ iconColor: 'charts.blue' });
+  const ok = withBuild(build([], { exitCode: 0, cancelled: false }));
+  expect(buildRow(ok)).toMatchObject({ iconColor: 'testing.iconPassed', resourceUri: 'vssln-status:/build' });
+  expect(statusDecoration('vssln-status:/build', ok)).toEqual({ color: 'testing.iconPassed' });
+  const failed = withBuild(build([error('Math')], { exitCode: 1, cancelled: false }));
+  expect(buildRow(failed)).toMatchObject({ iconColor: 'testing.iconFailed' });
+  expect(statusDecoration('vssln-status:/build', failed)).toEqual({ color: 'list.errorForeground' });
+  expect(statusDecoration('vssln-status:/build', withBuild(build([])))).toBeUndefined();
+  expect(statusDecoration('vssln-status:/other', ok)).toBeUndefined();
+});
+
+test('project colors follow the build result', () => {
+  const st = withBuild(build([
+    started('Math'), finished('Math'),
+    started('Game'), warning('Game'), finished('Game'),
+    error('Render'), finished('Render', true),
+  ], { exitCode: 1, cancelled: false }));
+  expect(projectRow(node('Math'), st).iconColor).toBe('testing.iconPassed');
+  expect(projectRow(node('Game'), st).iconColor).toBe('list.warningForeground');
+  expect(projectRow(node('Render'), st).iconColor).toBe('testing.iconFailed');
+  expect(projectRow(node('Math'), withBuild(build([started('Math')]))).iconColor).toBe('charts.blue');
+  expect(projectRow(node('Math'), withBuild(build([]))).iconColor).toBeUndefined();
+  expect(projectRow(node('Math'), s).iconColor).toBeUndefined();
+});
+
+test('skipped projects are greyed', () => {
+  const st = withBuild(build([], { exitCode: null, cancelled: true }));
+  expect(projectDecoration(projectUri(project('Math').guid), st)).toEqual({ color: 'disabledForeground', tooltip: 'skipped' });
 });
