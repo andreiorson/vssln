@@ -7,9 +7,12 @@ import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
 import { ProjectsView } from './ui/projectsView';
 import { StatusBar } from './ui/statusBar';
 import { StatusView } from './ui/statusView';
+import { deletionAffects } from './util/paths';
 
 export interface VsslnApi {
   getState(): AppState;
+  /** The tree data providers behind the side bar, for tests and other extensions. */
+  views: { status: StatusView; projects: ProjectsView };
 }
 
 export function activate(context: vscode.ExtensionContext): VsslnApi {
@@ -23,13 +26,19 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const decorations = new ProjectDecorations(store);
   const reload = debounce(() => void controller.reload(), 300);
 
-  const settingsWatcher = vscode.workspace.createFileSystemWatcher('**/.vscode/vssln.json');
-  const slnWatcher = vscode.workspace.createFileSystemWatcher('**/*.sln');
-  for (const watcher of [settingsWatcher, slnWatcher]) {
+  // Project files matter too: a created Missing project or added sources change the tree.
+  const watchers = ['**/.vscode/vssln.json', '**/*.sln', '**/*.vcxproj'].map(glob => vscode.workspace.createFileSystemWatcher(glob));
+  for (const watcher of watchers) {
     watcher.onDidCreate(reload);
     watcher.onDidChange(reload);
     watcher.onDidDelete(reload);
   }
+  // A deleted folder is reported once for the folder itself, which the globs above do not match.
+  const deletions = vscode.workspace.createFileSystemWatcher('**/*', true, true, false);
+  deletions.onDidDelete(uri => {
+    if (deletionAffects(uri.fsPath, store.state)) reload();
+  });
+  watchers.push(deletions);
 
   const setPhase = (s: AppState) => void vscode.commands.executeCommand('setContext', 'vssln.phase', s.phase);
   setPhase(store.state);
@@ -43,8 +52,8 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     vscode.window.createTreeView('vssln.status', { treeDataProvider: statusView }),
     vscode.window.createTreeView('vssln.projects', { treeDataProvider: projectsView, showCollapseAll: true }),
     vscode.window.registerFileDecorationProvider(decorations),
-    settingsWatcher,
-    slnWatcher,
+    ...watchers,
+    { dispose: () => reload.cancel() },
     vscode.workspace.onDidChangeWorkspaceFolders(reload),
     store.onDidChange(setPhase),
     ...registerCommands(store, controller, log),
@@ -53,7 +62,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   void controller.reload();
   log.info(`Activated; project decorations use the ${PROJECT_SCHEME} scheme.`);
 
-  return { getState: () => store.state };
+  return { getState: () => store.state, views: { status: statusView, projects: projectsView } };
 }
 
 export function deactivate(): void {}

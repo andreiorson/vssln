@@ -32,4 +32,9 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 
 ## Workspace without a solution
 
-- [ ] Open a folder without `.sln`: the Projects view shows "No solution found in this workspace." with a Select solution link.
+- [ ] Open a folder without `.sln`: the Projects view shows "No solution found in this workspace." with Reload and Open Folder links.
+
+## Watching
+
+- [ ] Delete a project folder (for example `samples/Engine/Tools/Legacy`) and restore it with git: the project turns into `file not found` and back without a manual reload.
+- [ ] The configuration and solution pickers mark the current entry with `current`.

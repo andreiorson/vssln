@@ -40,6 +40,7 @@ const PROBLEM_COMMANDS: Record<NonNullable<Problem['action']>, string> = {
   configureToolchain: 'vssln.configureToolchain',
   openSettings: 'vssln.openSettings',
   selectSolution: 'vssln.selectSolution',
+  showLog: 'vssln.showLog',
 };
 
 const TYPE_ICONS: Record<ConfigurationType, string> = {
@@ -73,6 +74,7 @@ function problemRows(s: AppState): StatusRow[] {
 
 export function statusRows(s: AppState): StatusRow[] {
   if (s.phase === 'loading') return [];
+  if (s.phase === 'failed') return problemRows(s);
   if (s.phase === 'noSolution' || !s.solution) {
     return [
       { id: 'solution', label: 'No solution', icon: 'file-code', command: 'vssln.selectSolution', contextValue: 'status.solution' },

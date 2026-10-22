@@ -6,7 +6,7 @@ import { VsInstance } from '../toolchain/vswhere';
 export interface Problem {
   severity: 'error' | 'warning';
   message: string;
-  action?: 'configureToolchain' | 'openSettings' | 'selectSolution';
+  action?: 'configureToolchain' | 'openSettings' | 'selectSolution' | 'showLog';
 }
 
 export interface ProjectEntry {
@@ -15,7 +15,7 @@ export interface ProjectEntry {
 }
 
 export interface AppState {
-  phase: 'loading' | 'noSolution' | 'ready';
+  phase: 'loading' | 'noSolution' | 'ready' | 'failed';
   /** Workspace folder whose vssln.json applies. */
   folder?: string;
   /** All discovered .sln files, absolute. */
@@ -39,6 +39,11 @@ export const initialState: AppState = {
   settingsSyntaxOk: true,
   problems: [],
 };
+
+/** State after loading threw: nothing to show except why, with a way to the log. */
+export function failedState(message: string): AppState {
+  return { ...initialState, projects: new Map(), phase: 'failed', problems: [{ severity: 'error', message, action: 'showLog' }] };
+}
 
 export class Store {
   private current: AppState = initialState;

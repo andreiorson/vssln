@@ -10,14 +10,20 @@ export function coalesce(fn: () => void, delayMs: number): () => void {
   };
 }
 
-/** Runs `fn` `delayMs` after the last call of a burst. */
-export function debounce(fn: () => void, delayMs: number): () => void {
+/** Runs `fn` `delayMs` after the last call of a burst; `cancel` drops a pending run. */
+export function debounce(fn: () => void, delayMs: number): (() => void) & { cancel(): void } {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  return () => {
+  const run = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = undefined;
       fn();
     }, delayMs);
   };
+  return Object.assign(run, {
+    cancel() {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+    },
+  });
 }

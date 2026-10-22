@@ -16,17 +16,18 @@ export interface PickItem<T> {
 export function solutionItems(solutions: string[], folders: string[], current?: string): PickItem<string>[] {
   return solutions.map(p => {
     const folder = folderOf(folders, p);
-    return {
-      label: path.win32.basename(p),
-      description: folder ? path.win32.relative(folder, p) : p,
-      picked: current !== undefined && samePath(p, current),
-      value: p,
-    };
+    const isCurrent = current !== undefined && samePath(p, current);
+    const where = folder ? path.win32.relative(folder, p) : p;
+    // `picked` only matters for multi-select pickers, so the current item is also named in the description.
+    return { label: path.win32.basename(p), description: isCurrent ? `${where} · current` : where, picked: isCurrent, value: p };
   });
 }
 
 export function configurationItems(s: AppState): PickItem<string>[] {
-  return (s.solution?.configurations ?? []).map(c => ({ label: c.name, picked: c.name === s.configuration?.name, value: c.name }));
+  return (s.solution?.configurations ?? []).map(c => {
+    const isCurrent = c.name === s.configuration?.name;
+    return { label: c.name, ...(isCurrent ? { description: 'current' } : {}), picked: isCurrent, value: c.name };
+  });
 }
 
 function projectsInTreeOrder(nodes: TreeNode[]): SlnProject[] {

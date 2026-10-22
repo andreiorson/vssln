@@ -65,6 +65,37 @@ suite('activation', () => {
     });
   });
 
+  test('the Projects view renders the fixture tree', async () => {
+    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    await waitFor(() => api.getState().phase === 'ready', 10000);
+    const roots = api.views.projects.getChildren();
+    assert.deepStrictEqual(roots.map(n => n.label), ['Core', 'Tools', 'Docs', 'Game', 'Missing']);
+    const game = api.views.projects.getTreeItem(roots[3]);
+    assert.strictEqual(game.description, 'exe · 3 files · startup');
+    assert.strictEqual(api.views.projects.getTreeItem(roots[4]).contextValue, 'project.missing');
+    const statusLabels = api.views.status.getChildren().map(r => api.views.status.getTreeItem(r).label);
+    assert.deepStrictEqual(statusLabels, ['Sample.sln', 'Release | x64', 'Game']);
+  });
+
+  test('creating a missing project file updates the tree without a manual reload', async () => {
+    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
+    const missingDir = path.join(folder, 'Missing');
+    const guid = '{66666666-6666-6666-6666-666666666666}';
+    await waitFor(() => api.getState().phase === 'ready', 10000);
+    assert.strictEqual(api.getState().projects.get(guid)?.exists, false);
+    // VS Code starts watching asynchronously; files created right after activation are not reported.
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      fs.mkdirSync(missingDir, { recursive: true });
+      fs.copyFileSync(path.join(folder, 'Game', 'Game.vcxproj'), path.join(missingDir, 'Missing.vcxproj'));
+      await waitFor(() => api.getState().projects.get(guid)?.exists === true, 5000);
+    } finally {
+      fs.rmSync(missingDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
+    await waitFor(() => api.getState().projects.get(guid)?.exists === false, 5000);
+  });
+
   test('commands are registered', async () => {
     const commands = await vscode.commands.getCommands(true);
     for (const id of ['vssln.selectSolution', 'vssln.selectConfiguration', 'vssln.selectStartupProject', 'vssln.openSettings', 'vssln.refresh']) {

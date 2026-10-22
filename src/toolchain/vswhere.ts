@@ -66,6 +66,22 @@ interface VswhereEntry {
   displayName?: string;
 }
 
+/** Remembers toolchain results per options, so reloads after every selection change do not run vswhere again. */
+export function cachedToolchain(find: (opts: ToolchainOptions) => Promise<ToolchainResult>) {
+  const cache = new Map<string, Promise<ToolchainResult>>();
+  return {
+    find(opts: ToolchainOptions): Promise<ToolchainResult> {
+      const key = JSON.stringify([opts.vsVersion ?? null, opts.msbuildPath ?? null]);
+      let result = cache.get(key);
+      if (!result) cache.set(key, (result = find(opts)));
+      return result;
+    },
+    clear(): void {
+      cache.clear();
+    },
+  };
+}
+
 /** Finds Visual Studio and its MSBuild through vswhere, or uses the explicit MSBuild path from the settings. */
 export async function findToolchain(opts: ToolchainOptions, deps: ToolchainDeps): Promise<ToolchainResult> {
   if (opts.msbuildPath) return fromExplicitPath(opts.msbuildPath, deps);

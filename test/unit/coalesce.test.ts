@@ -17,6 +17,15 @@ test('coalesce runs once per burst, delay counted from the first call', () => {
   expect(fn).toHaveBeenCalledTimes(2);
 });
 
+test('a cancelled debounce does not run', () => {
+  const fn = vi.fn();
+  const run = debounce(fn, 300);
+  run();
+  run.cancel();
+  vi.advanceTimersByTime(1000);
+  expect(fn).not.toHaveBeenCalled();
+});
+
 test('debounce runs once, delay counted from the last call', () => {
   const fn = vi.fn();
   const run = debounce(fn, 300);

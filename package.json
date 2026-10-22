@@ -42,7 +42,7 @@
     "viewsWelcome": [
       {
         "view": "vssln.projects",
-        "contents": "No solution found in this workspace.\n[Select solution](command:vssln.selectSolution)",
+        "contents": "No solution found in this workspace.\n[Reload](command:vssln.refresh)\n[Open Folder](command:vscode.openFolder)",
         "when": "vssln.phase == noSolution"
       }
     ],

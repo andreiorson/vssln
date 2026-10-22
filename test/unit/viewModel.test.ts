@@ -1,6 +1,6 @@
 import { beforeAll, expect, test } from 'vitest';
 import { buildTree, TreeNode } from '../../src/solution/model';
-import { AppState } from '../../src/state/store';
+import { AppState, failedState } from '../../src/state/store';
 import { projectDecoration, projectRow, projectUri, statusBarItems, statusRows } from '../../src/ui/viewModel';
 import { loadFixtureState } from './helpers';
 
@@ -57,6 +57,12 @@ test('warning problem rows', async () => {
 test('no solution: a solution row that selects one, plus problems', () => {
   const rows = statusRows({ ...s, phase: 'noSolution', solution: undefined, configuration: undefined, startupProjectGuid: undefined });
   expect(rows.map(r => [r.id, r.label, r.command])).toEqual([['solution', 'No solution', 'vssln.selectSolution']]);
+});
+
+test('a failed load shows its problem with a link to the log', () => {
+  const failed = failedState('Loading the workspace failed: boom');
+  expect(failed.phase).toBe('failed');
+  expect(statusRows(failed).map(r => [r.label, r.icon, r.command])).toEqual([['Loading the workspace failed: boom', 'error', 'vssln.showLog']]);
 });
 
 test('loading: no rows', () => {

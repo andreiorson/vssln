@@ -5,21 +5,25 @@ import { ensureObjectKey, SelectionKey } from '../settings/settings';
 import { SETTINGS_RELATIVE_PATH, SettingsFile, SettingsSyntaxError, writeSolutionSelection } from '../settings/settingsFile';
 import { TreeNode } from '../solution/model';
 import { loadWorkspace } from '../state/loader';
-import { Store } from '../state/store';
+import { failedState, Store } from '../state/store';
+import { cachedToolchain } from '../toolchain/vswhere';
 import { folderOf, samePath } from '../util/paths';
-import { exec, loaderDeps, nodeFs, workspaceFolders } from './host';
+import { exec, findRealToolchain, loaderDeps, nodeFs, workspaceFolders } from './host';
 import { configurationItems, PickItem, solutionItems, startupItems } from './pickItems';
 
 /** Loads the workspace into the store and applies the user's selections to the settings file. */
 export class Controller {
   private generation = 0;
+  private readonly toolchain = cachedToolchain(findRealToolchain);
 
   constructor(private readonly store: Store, private readonly log: vscode.LogOutputChannel) {}
 
-  async reload(): Promise<void> {
+  /** Reloads the workspace; `fresh` also forgets the cached Visual Studio lookup (the Reload command). */
+  async reload(fresh = false): Promise<void> {
+    if (fresh) this.toolchain.clear();
     const generation = ++this.generation;
     try {
-      const state = await loadWorkspace(loaderDeps());
+      const state = await loadWorkspace(loaderDeps(opts => this.toolchain.find(opts)));
       if (generation !== this.generation) return;
       this.store.set(state);
       const sln = state.solution ? `${path.basename(state.solution.path)}, ${state.configuration?.name ?? 'no configuration'}` : 'no solution';
@@ -27,6 +31,7 @@ export class Controller {
       for (const p of state.problems) (p.severity === 'error' ? this.log.error : this.log.warn).call(this.log, p.message);
     } catch (e) {
       this.log.error(`Loading the workspace failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+      if (generation === this.generation) this.store.set(failedState('Loading the workspace failed. See the log for details.'));
     }
   }
 
@@ -160,7 +165,7 @@ export function registerCommands(store: Store, controller: Controller, log: vsco
 
     register('vssln.openSettings', () => controller.openSettings()),
     register('vssln.configureToolchain', () => controller.openSettings('toolchain')),
-    register('vssln.refresh', () => controller.reload()),
+    register('vssln.refresh', () => controller.reload(true)),
     register('vssln.showLog', () => log.show()),
 
     register('vssln.openProjectFile', async (node?: TreeNode) => {

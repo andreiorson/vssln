@@ -9,17 +9,17 @@ beforeAll(async () => {
   s = await loadFixtureState();
 });
 
-test('solution items: file name and path relative to its folder, current picked', () => {
+test('solution items: file name and path relative to its folder, current marked', () => {
   const items = solutionItems(['C:\\w\\src\\A.sln', 'C:\\x\\B.sln'], ['C:\\w', 'C:\\x'], 'C:\\w\\src\\A.sln');
   expect(items).toEqual([
-    { label: 'A.sln', description: 'src\\A.sln', picked: true, value: 'C:\\w\\src\\A.sln' },
+    { label: 'A.sln', description: 'src\\A.sln · current', picked: true, value: 'C:\\w\\src\\A.sln' },
     { label: 'B.sln', description: 'B.sln', picked: false, value: 'C:\\x\\B.sln' },
   ]);
 });
 
-test('configuration items in file order, current picked', () => {
-  expect(configurationItems(s).map(i => [i.label, i.picked])).toEqual([
-    ['Debug|Win32', false], ['Debug|x64', false], ['Release|Win32', false], ['Release|x64', true],
+test('configuration items in file order, current marked', () => {
+  expect(configurationItems(s).map(i => [i.label, i.description, i.picked])).toEqual([
+    ['Debug|Win32', undefined, false], ['Debug|x64', undefined, false], ['Release|Win32', undefined, false], ['Release|x64', 'current', true],
   ]);
 });
 
@@ -35,6 +35,6 @@ test('startup items with show all: every C++ project in tree order', () => {
 });
 
 test('fixture workspace path is used for the fixture solution', () => {
-  expect(solutionItems(s.solutions, [WORKSPACE], s.solution!.path)[0].description).toBe('Sample.sln');
+  expect(solutionItems(s.solutions, [WORKSPACE], s.solution!.path)[0].description).toBe('Sample.sln · current');
   expect(path.isAbsolute(s.solutions[0])).toBe(true);
 });
