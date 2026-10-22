@@ -1,20 +1,35 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { expect, test } from 'vitest';
+import { BUILD_OUTPUT_LANGUAGE } from '../../src/build/outputLanguage';
 
-interface Pattern { match: string; name: string }
-const grammar: { scopeName: string; patterns: Pattern[] } = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '..', '..', 'syntaxes', 'vssln-build.tmLanguage.json'), 'utf8'),
-);
+interface Pattern { match: string; name?: string; captures?: Record<string, { name: string }> }
+const root = path.join(__dirname, '..', '..');
+const grammar: { scopeName: string; patterns: Pattern[] } = JSON.parse(fs.readFileSync(path.join(root, 'syntaxes', 'vssln-build.tmLanguage.json'), 'utf8'));
 
-/** Approximates TextMate: the earliest match in the line wins, ties go to the first pattern. */
-function firstToken(line: string): { scope: string; text: string } | undefined {
-  let best: { index: number; scope: string; text: string } | undefined;
-  for (const p of grammar.patterns) {
-    const m = new RegExp(p.match).exec(line);
-    if (m && (!best || m.index < best.index)) best = { index: m.index, scope: p.name, text: m[0] };
+/**
+ * Approximates TextMate: from the current position the earliest match wins (ties: first pattern), scanning goes on
+ * after it; "^" only matches at the start of the line. Returns every scoped piece of text.
+ */
+function tokens(line: string): { scope: string; text: string }[] {
+  const out: { scope: string; text: string }[] = [];
+  let pos = 0;
+  while (pos <= line.length) {
+    let best: { index: number; m: RegExpExecArray; p: Pattern } | undefined;
+    for (const p of grammar.patterns) {
+      const re = new RegExp(p.match, 'g');
+      re.lastIndex = pos;
+      const m = re.exec(line);
+      if (m && m[0].length > 0 && (!best || m.index < best.index)) best = { index: m.index, m, p };
+    }
+    if (!best) break;
+    if (best.p.name) out.push({ scope: best.p.name, text: best.m[0] });
+    for (const [group, capture] of Object.entries(best.p.captures ?? {})) {
+      if (best.m[Number(group)]) out.push({ scope: capture.name, text: best.m[Number(group)] });
+    }
+    pos = best.index + best.m[0].length;
   }
-  return best && { scope: best.scope, text: best.text };
+  return out;
 }
 
 test('every pattern compiles', () => {
@@ -22,28 +37,39 @@ test('every pattern compiles', () => {
   for (const p of grammar.patterns) expect(() => new RegExp(p.match)).not.toThrow();
 });
 
-test('errors are red, only the error and its code', () => {
-  expect(firstToken('C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]')).toEqual({ scope: 'token.error-token', text: 'error C1189' });
-  expect(firstToken('LINK : fatal error LNK1104: cannot open file [C:\\a\\G.vcxproj]')).toEqual({ scope: 'token.error-token', text: 'fatal error LNK1104' });
-  expect(firstToken('EXEC : error : failed [C:\\a\\S.vcxproj]')).toEqual({ scope: 'token.error-token', text: 'error' });
+test('the package contributes this grammar for the output channel language', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  expect(pkg.contributes.languages.map((l: { id: string }) => l.id)).toContain(BUILD_OUTPUT_LANGUAGE);
+  const g = pkg.contributes.grammars.find((x: { language: string }) => x.language === BUILD_OUTPUT_LANGUAGE);
+  expect(g.scopeName).toBe(grammar.scopeName);
+  expect(fs.existsSync(path.join(root, g.path))).toBe(true);
 });
 
-test('warnings are yellow', () => {
-  expect(firstToken('C:\\a\\m.cpp(3): warning C4100: unused [C:\\a\\M.vcxproj]')).toEqual({ scope: 'token.warn-token', text: 'warning C4100' });
+test('only the error and its code are red, not words in the message', () => {
+  expect(tokens('C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]')).toEqual([{ scope: 'token.error-token', text: 'error C1189' }]);
+  expect(tokens('LINK : fatal error LNK1104: cannot open file [C:\\a\\G.vcxproj]')).toEqual([{ scope: 'token.error-token', text: 'fatal error LNK1104' }]);
+  expect(tokens('EXEC : error : failed with error: 5 [C:\\a\\S.vcxproj]')).toEqual([{ scope: 'token.error-token', text: 'error' }]);
+  expect(tokens('cl : command line error D8016: bad [C:\\a\\M.vcxproj]')).toEqual([{ scope: 'token.error-token', text: 'error D8016' }]);
 });
 
-test('project results and the final result', () => {
-  expect(firstToken('Math: FAILED')).toEqual({ scope: 'token.error-token', text: 'Math: FAILED' });
-  expect(firstToken('Build FAILED.')).toEqual({ scope: 'token.error-token', text: 'Build FAILED.' });
-  expect(firstToken('Platform: succeeded')).toEqual({ scope: 'markup.inserted', text: 'Platform: succeeded' });
-  expect(firstToken('Build succeeded.')).toEqual({ scope: 'markup.inserted', text: 'Build succeeded.' });
-  expect(firstToken('Build stopped.')).toEqual({ scope: 'token.warn-token', text: 'Build stopped.' });
-  expect(firstToken('Rebuild Engine.sln (Release|x64)')).toEqual({ scope: 'token.info-token', text: 'Rebuild Engine.sln (Release|x64)' });
+test('warnings are yellow, only the warning and its code', () => {
+  expect(tokens('C:\\a\\m.cpp(3): warning C4100: unused, see warning: x [C:\\a\\M.vcxproj]')).toEqual([{ scope: 'token.warn-token', text: 'warning C4100' }]);
+});
+
+test('project results, the final result and start failures', () => {
+  expect(tokens('Math: FAILED')).toEqual([{ scope: 'token.error-token', text: 'Math: FAILED' }]);
+  expect(tokens('Build FAILED.')).toEqual([{ scope: 'token.error-token', text: 'Build FAILED.' }]);
+  expect(tokens('Platform: succeeded')).toEqual([{ scope: 'markup.inserted', text: 'Platform: succeeded' }]);
+  expect(tokens('Build succeeded.')).toEqual([{ scope: 'markup.inserted', text: 'Build succeeded.' }]);
+  expect(tokens('Build stopped.')).toEqual([{ scope: 'token.warn-token', text: 'Build stopped.' }]);
+  expect(tokens('Rebuild Engine.sln (Release|x64)')).toEqual([{ scope: 'token.info-token', text: 'Rebuild Engine.sln (Release|x64)' }]);
+  expect(tokens('MSBuild could not start: spawn ENOENT')).toEqual([{ scope: 'token.error-token', text: 'MSBuild could not start: spawn ENOENT' }]);
+  expect(tokens('The build failed to run: boom')).toEqual([{ scope: 'token.error-token', text: 'The build failed to run: boom' }]);
 });
 
 test('summary counts and ordinary lines stay plain', () => {
-  expect(firstToken('    0 Error(s)')).toBeUndefined();
-  expect(firstToken('    1 Warning(s)')).toBeUndefined();
-  expect(firstToken('Game.vcxproj -> C:\\out\\Game.exe')).toBeUndefined();
-  expect(firstToken('Time Elapsed 00:00:02.71')).toBeUndefined();
+  expect(tokens('    0 Error(s)')).toEqual([]);
+  expect(tokens('    1 Warning(s)')).toEqual([]);
+  expect(tokens('Game.vcxproj -> C:\\out\\Game.exe')).toEqual([]);
+  expect(tokens('Time Elapsed 00:00:02.71')).toEqual([]);
 });

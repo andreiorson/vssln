@@ -165,6 +165,16 @@ test('onStarted is called once for a started build and never for a refused one',
   expect(started).toBe(1);
 });
 
+test('onStarted comes before the first written line, so clearing the output keeps the header', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const { runner } = fakeRunner('msbuild/build-incremental.log', 0);
+  const order: string[] = [];
+  await runBuild({ ...deps(store, runner, []), write: l => order.push(`write:${l}`), onStarted: () => order.push('started') }, { action: 'Build' });
+  expect(order[0]).toBe('started');
+  expect(order[1]).toBe('write:Build Engine.sln (Release|x64)');
+});
+
 test('each diagnostic is handed out once, without the summary repeats', async () => {
   const store = new Store();
   store.set(readyState());

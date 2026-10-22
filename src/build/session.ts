@@ -71,9 +71,10 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   const expected = request.project ? [request.project.guid] : expectedProjects(sln, config, s.projects);
   const guidByPath = (p: string) => sln.projects.find(x => samePath(x.absPath, p))?.guid;
 
-  deps.write(`${request.action} ${request.project ? request.project.name : path.win32.basename(sln.path)} (${config.name})`);
   deps.store.update(st => ({ ...st, build: startBuild(request, expected, logFile, deps.now()) }));
+  // Before the first line: the caller clears its output here.
   deps.onStarted?.();
+  deps.write(`${request.action} ${request.project ? request.project.name : path.win32.basename(sln.path)} (${config.name})`);
 
   const parser = new OutputParser();
   let result: { exitCode: number | null; cancelled: boolean } = { exitCode: null, cancelled: false };

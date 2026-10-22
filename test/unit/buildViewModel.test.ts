@@ -142,9 +142,26 @@ test('status bar build entry', () => {
   });
   const ok = withBuild(build([], { exitCode: 0, cancelled: false }));
   expect(statusBarItems(ok).find(i => i.id === 'build')).toEqual({
-    id: 'build', text: '$(check) Built 1:05', tooltip: `Build succeeded at ${clock(66_000)}`, command: 'vssln.showBuildOutput', color: 'testing.iconPassed',
+    id: 'build', text: '$(check) Built 1:05', tooltip: `Build succeeded at ${clock(66_000)}`, command: 'vssln.showBuildOutput',
   });
   expect(statusBarItems(withBuild(build([], { exitCode: null, cancelled: true }))).find(i => i.id === 'build')).toBeUndefined();
+});
+
+test('status bar wording follows the action and the result', () => {
+  const ok = withBuild(build([], { exitCode: 0, cancelled: false }));
+  expect(statusBarItems(ok).find(i => i.id === 'build')!.color).toBeUndefined();
+  expect(statusBarItems({ ...ok, build: { ...ok.build, action: 'Rebuild' } }).find(i => i.id === 'build')!.text).toBe('$(check) Rebuilt 1:05');
+  expect(statusBarItems({ ...ok, build: { ...ok.build, action: 'Clean' } }).find(i => i.id === 'build')!.text).toBe('$(check) Cleaned 1:05');
+  const noErrors = withBuild(build([], { exitCode: 1, cancelled: false }));
+  expect(statusBarItems(noErrors).find(i => i.id === 'build')!.text).toBe('$(error) Build failed');
+  expect(buildRow(noErrors)!.description).toBe(`failed · ${clock(66_000)} · 1:05`);
+});
+
+test('a success with warnings is yellow', () => {
+  const st = withBuild(build([started('Math'), warning('Math'), warning('Math'), finished('Math')], { exitCode: 0, cancelled: false }));
+  expect(buildRow(st)).toMatchObject({ icon: 'warning', iconColor: 'list.warningForeground', description: `succeeded · 2 warnings · ${clock(66_000)} · 1:05` });
+  expect(statusDecoration('vssln-status:/build', st)).toEqual({ color: 'list.warningForeground' });
+  expect(statusBarItems(st).find(i => i.id === 'build')!.text).toBe('$(warning) Built 1:05 · 2 warnings');
 });
 
 test('build row colors', () => {

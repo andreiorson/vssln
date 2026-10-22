@@ -104,10 +104,21 @@ function buildRow(b: BuildState, now: number): StatusRow | undefined {
       const errors = b.errors > 0 ? ` · ${plural(b.errors, 'error')}` : '';
       return { ...common, icon: 'loading~spin', iconColor: RUNNING, description: `${b.done}/${b.total} · ${duration(now - (b.startedAt ?? now))}${errors}`, contextValue: 'status.build.running' };
     }
-    case 'succeeded':
-      return { ...common, icon: 'pass', iconColor: PASSED, resourceUri: STATUS_BUILD_URI, description: `succeeded · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
-    case 'failed':
-      return { ...common, icon: 'error', iconColor: FAILED, resourceUri: STATUS_BUILD_URI, description: `failed · ${plural(b.errors, 'error')} · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
+    case 'succeeded': {
+      const warned = b.warnings > 0;
+      const warnings = warned ? ` · ${plural(b.warnings, 'warning')}` : '';
+      return {
+        ...common, icon: warned ? 'warning' : 'pass', iconColor: warned ? WARNING : PASSED, resourceUri: STATUS_BUILD_URI,
+        description: `succeeded${warnings} · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build',
+      };
+    }
+    case 'failed': {
+      const errors = b.errors > 0 ? ` · ${plural(b.errors, 'error')}` : '';
+      return {
+        ...common, icon: 'error', iconColor: FAILED, resourceUri: STATUS_BUILD_URI,
+        description: `failed${errors} · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build',
+      };
+    }
     case 'cancelled':
       return { ...common, icon: 'circle-slash', description: `stopped · ${clock(finishedAt)}`, contextValue: 'status.build' };
   }
@@ -204,7 +215,7 @@ function folderBuildDescription(node: TreeNode, s: AppState): string | undefined
 /** Label color of the Build row: green after success, red after failure. */
 export function statusDecoration(uri: string, s: AppState): Decoration | undefined {
   if (uri !== STATUS_BUILD_URI) return undefined;
-  if (s.build.status === 'succeeded') return { color: PASSED };
+  if (s.build.status === 'succeeded') return { color: s.build.warnings > 0 ? WARNING : PASSED };
   if (s.build.status === 'failed') return { color: 'list.errorForeground' };
   return undefined;
 }
@@ -277,6 +288,7 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
     };
   }
 
+  const iconColor = projectIconColor(build);
   const parts = [TYPE_SHORT[status.type], plural(status.files, 'file')];
   if (project.guid === s.startupProjectGuid) parts.push('startup');
   return {
@@ -284,7 +296,7 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
     description: build ? projectBuildDescription(build, s.build.action) : parts.filter(Boolean).join(' · '),
     tooltip: build?.messages.length ? `${project.absPath}\n${build.messages.join('\n')}` : project.absPath,
     icon: build?.status === 'building' ? 'loading~spin' : TYPE_ICONS[status.type],
-    ...(projectIconColor(build) ? { iconColor: projectIconColor(build) } : {}),
+    ...(iconColor ? { iconColor } : {}),
     contextValue: status.type === 'Application' ? 'project.app' : 'project.lib',
     resourceUri,
     inactive: false,
@@ -325,15 +337,20 @@ export function statusBarItems(s: AppState): StatusBarEntry[] {
   if (b.status === 'running') {
     items.push({ id: 'build', text: `$(sync~spin) Building ${b.done}/${b.total}${b.errors > 0 ? ` · $(error) ${b.errors}` : ''}`, tooltip: 'Build in progress', command: 'vssln.showBuildOutput' });
   } else if (b.status === 'failed') {
+    // No recognised error (MSBuild crashed or was killed from outside): say so instead of "0 errors".
+    const text = b.errors > 0 ? `$(error) ${plural(b.errors, 'error')}` : '$(error) Build failed';
     items.push({
-      id: 'build', text: `$(error) ${plural(b.errors, 'error')}`, tooltip: `Build failed: ${plural(b.errors, 'error')}`,
+      id: 'build', text, tooltip: b.errors > 0 ? `Build failed: ${plural(b.errors, 'error')}` : 'Build failed',
       command: 'workbench.actions.view.problems', background: 'statusBarItem.errorBackground',
     });
   } else if (b.status === 'succeeded') {
     const finishedAt = b.finishedAt ?? 0;
+    const done = b.action === 'Rebuild' ? 'Rebuilt' : b.action === 'Clean' ? 'Cleaned' : 'Built';
+    const warnings = b.warnings > 0 ? ` · ${plural(b.warnings, 'warning')}` : '';
+    // No text color: green on the status bar's blue or orange (debugging) background is unreadable.
     items.push({
-      id: 'build', text: `$(check) Built ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, tooltip: `Build succeeded at ${clock(finishedAt)}`,
-      command: 'vssln.showBuildOutput', color: PASSED,
+      id: 'build', text: `$(${b.warnings > 0 ? 'warning' : 'check'}) ${done} ${duration(finishedAt - (b.startedAt ?? finishedAt))}${warnings}`,
+      tooltip: `Build succeeded at ${clock(finishedAt)}${warnings}`, command: 'vssln.showBuildOutput',
     });
   }
   return items;

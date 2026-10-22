@@ -5,7 +5,7 @@
   "patterns": [
     {
       "name": "token.error-token",
-      "match": "^(?:.+: FAILED|Build FAILED\\.)$"
+      "match": "^(?:.+: FAILED|Build FAILED\\.|MSBuild could not start: .*|The build failed to run: .*)$"
     },
     {
       "name": "markup.inserted",
@@ -20,12 +20,20 @@
       "match": "^(?:Build|Rebuild|Clean) .+ \\([^)]*\\)$"
     },
     {
-      "name": "token.error-token",
-      "match": "\\b(?:fatal\\s+)?error(?:\\s+[A-Za-z]+\\d+)?(?=\\s*:)"
+      "match": "^(?:.*?)\\s*:\\s*(?:(?!fatal\\s)[A-Za-z][A-Za-z ]*?\\s)?((?:fatal\\s+)?error(?:\\s+[A-Za-z]+\\d+)?)(?=\\s*:)",
+      "captures": {
+        "1": {
+          "name": "token.error-token"
+        }
+      }
     },
     {
-      "name": "token.warn-token",
-      "match": "\\bwarning(?:\\s+[A-Za-z]+\\d+)?(?=\\s*:)"
+      "match": "^(?:.*?)\\s*:\\s*(?:(?!fatal\\s)[A-Za-z][A-Za-z ]*?\\s)?(warning(?:\\s+[A-Za-z]+\\d+)?)(?=\\s*:)",
+      "captures": {
+        "1": {
+          "name": "token.warn-token"
+        }
+      }
     }
   ]
 }

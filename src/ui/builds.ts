@@ -2,12 +2,11 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { BuildAction, BuildRequest } from '../build/args';
 import { diagnosticDetails } from '../build/diagnostics';
+import { BUILD_OUTPUT_LANGUAGE } from '../build/outputLanguage';
 import { BuildRunner, realKillTree, realSpawn } from '../build/runner';
 import { cannotBuild, NO_TOOLCHAIN, runBuild, SessionResult } from '../build/session';
 import { TreeNode } from '../solution/model';
 import { Store } from '../state/store';
-
-export const BUILD_OUTPUT_LANGUAGE = 'vssln-build-output';
 
 /** Starts builds, writes their output to one Output channel (colored by its grammar) and fills Problems. */
 export class Builds implements vscode.Disposable {
