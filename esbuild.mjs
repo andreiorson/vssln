@@ -9,6 +9,8 @@ const options = {
   format: 'cjs',
   target: 'node20',
   external: ['vscode'],
+  // jsonc-parser's UMD entry loads its modules with dynamic require(), which a bundle cannot follow.
+  mainFields: ['module', 'main'],
   outfile: 'dist/extension.js',
   sourcemap: true,
   logLevel: 'info',

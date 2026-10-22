@@ -195,13 +195,14 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "npm run build && vscode-test",
+    "test:integration": "npm run build && tsc -p test/integration && vscode-test",
     "package": "vsce package --no-dependencies --skip-license --allow-missing-repository"
   },
   "dependencies": {
     "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.0",
     "@types/vscode": "~1.90.0",
     "@vscode/test-cli": "^0.0.11",
