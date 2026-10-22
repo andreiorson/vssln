@@ -7,3 +7,4 @@ out/
 samples/Engine/out/
 .vs/
 samples/Engine/.vscode/
+samples/Engine/Tools/AssetCooker/cooked.txt
