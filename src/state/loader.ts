@@ -4,6 +4,7 @@ import { ParsedSettings, parseSettings } from '../settings/settings';
 import { scanVcxproj, VcxprojScan } from '../solution/projectScan';
 import { parseSln } from '../solution/slnParser';
 import { ToolchainOptions, ToolchainResult } from '../toolchain/vswhere';
+import { folderOf } from '../util/paths';
 import { AppState, initialState, Problem, ProjectEntry } from './store';
 
 export interface LoaderDeps {
@@ -18,16 +19,6 @@ export interface LoaderDeps {
 interface FolderSettings {
   folder: string;
   parsed: ParsedSettings;
-}
-
-function isInside(folder: string, p: string): boolean {
-  const rel = path.win32.relative(folder.toLowerCase(), p.toLowerCase());
-  return rel !== '' && !rel.startsWith('..') && !path.win32.isAbsolute(rel);
-}
-
-/** The workspace folder a path belongs to; the deepest one wins for nested folders. */
-function folderOf(folders: string[], p: string): string | undefined {
-  return folders.filter(f => isInside(f, p)).sort((a, b) => b.length - a.length)[0];
 }
 
 /** Shallowest solution relative to its own workspace folder, then alphabetical across all folders. */

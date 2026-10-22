@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { typeFor, VcxprojScan } from '../solution/projectScan';
 import { ParsedSolution, projectConfigFor, SlnProject, SolutionConfig } from '../solution/slnParser';
+import { samePath } from '../util/paths';
 import { VsslnSettings } from './settings';
 
 export interface VariableContext {
@@ -36,10 +37,6 @@ export interface Resolved<T> {
   value?: T;
   source: Source;
   problem?: string;
-}
-
-function samePath(a: string, b: string): boolean {
-  return path.win32.normalize(a).toLowerCase() === path.win32.normalize(b).toLowerCase();
 }
 
 function depth(folder: string, p: string): number {

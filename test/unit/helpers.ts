@@ -1,5 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { loadWorkspace, LoaderDeps } from '../../src/state/loader';
+import { AppState } from '../../src/state/store';
+import { ToolchainResult } from '../../src/toolchain/vswhere';
 import { scanVcxproj, VcxprojScan } from '../../src/solution/projectScan';
 import { parseSln } from '../../src/solution/slnParser';
 
@@ -34,4 +37,39 @@ export function memoryFs(files: Record<string, string>) {
       files[p] = text;
     },
   };
+}
+
+export const WORKSPACE = fixturePath('workspace');
+export const SETTINGS = path.join(WORKSPACE, '.vscode', 'vssln.json');
+export const TOOLCHAIN: ToolchainResult = {
+  instance: { installationPath: 'C:\\VS', installationVersion: '18.0', displayName: 'VS', msbuildPath: 'C:\\VS\\MSBuild\\Current\\Bin\\MSBuild.exe', devEnvDir: 'C:\\VS\\Common7\\IDE\\' },
+};
+
+export function fixtureDeps(opts: { settings?: string; toolchain?: ToolchainResult; solutions?: string[]; folders?: string[]; files?: Record<string, string> } = {}): LoaderDeps & { toolchainOpts: unknown[] } {
+  const toolchainOpts: unknown[] = [];
+  return {
+    toolchainOpts,
+    folders: opts.folders ?? [WORKSPACE],
+    async findSolutions() {
+      return opts.solutions ?? [path.join(WORKSPACE, 'Sample.sln')];
+    },
+    async readText(p) {
+      if (opts.files && p in opts.files) return opts.files[p];
+      if (p === SETTINGS) return opts.settings;
+      return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : undefined;
+    },
+    async exists(p) {
+      return (opts.files !== undefined && p in opts.files) || fs.existsSync(p);
+    },
+    async findToolchain(o) {
+      toolchainOpts.push(o);
+      return opts.toolchain ?? TOOLCHAIN;
+    },
+  };
+}
+
+
+/** State loaded from the fixture workspace with a fake toolchain. */
+export function loadFixtureState(opts: Parameters<typeof fixtureDeps>[0] = {}): Promise<AppState> {
+  return loadWorkspace(fixtureDeps(opts));
 }

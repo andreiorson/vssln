@@ -1,38 +1,7 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import { expect, test } from 'vitest';
-import { loadWorkspace, LoaderDeps } from '../../src/state/loader';
-import { ToolchainResult } from '../../src/toolchain/vswhere';
-import { fixturePath, readFixture } from './helpers';
-
-const WORKSPACE = fixturePath('workspace');
-const SETTINGS = path.join(WORKSPACE, '.vscode', 'vssln.json');
-const TOOLCHAIN: ToolchainResult = {
-  instance: { installationPath: 'C:\\VS', installationVersion: '18.0', displayName: 'VS', msbuildPath: 'C:\\VS\\MSBuild\\Current\\Bin\\MSBuild.exe', devEnvDir: 'C:\\VS\\Common7\\IDE\\' },
-};
-
-function fixtureDeps(opts: { settings?: string; toolchain?: ToolchainResult; solutions?: string[]; folders?: string[]; files?: Record<string, string> } = {}): LoaderDeps & { toolchainOpts: unknown[] } {
-  const toolchainOpts: unknown[] = [];
-  return {
-    toolchainOpts,
-    folders: opts.folders ?? [WORKSPACE],
-    async findSolutions() {
-      return opts.solutions ?? [path.join(WORKSPACE, 'Sample.sln')];
-    },
-    async readText(p) {
-      if (opts.files && p in opts.files) return opts.files[p];
-      if (p === SETTINGS) return opts.settings;
-      return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : undefined;
-    },
-    async exists(p) {
-      return (opts.files !== undefined && p in opts.files) || fs.existsSync(p);
-    },
-    async findToolchain(o) {
-      toolchainOpts.push(o);
-      return opts.toolchain ?? TOOLCHAIN;
-    },
-  };
-}
+import { loadWorkspace } from '../../src/state/loader';
+import { fixtureDeps, readFixture, TOOLCHAIN, WORKSPACE } from './helpers';
 
 test('no .sln: phase noSolution, no throw', async () => {
   const s = await loadWorkspace(fixtureDeps({ solutions: [] }));
