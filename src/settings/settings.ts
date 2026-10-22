@@ -1,4 +1,4 @@
-import { applyEdits, modify, parse, ParseError, printParseErrorCode } from 'jsonc-parser';
+import { applyEdits, modify, parse, ParseError, parseTree, printParseErrorCode } from 'jsonc-parser';
 
 export type ConsoleKind = 'integratedTerminal' | 'externalTerminal' | 'internalConsole' | 'newExternalWindow';
 
@@ -236,6 +236,48 @@ function edit(raw: string, change: (base: string) => string): string {
 /** Sets one selection key, keeping comments and formatting of the rest of the file. */
 export function applySelectionEdit(text: string, key: SelectionKey, value: string): string {
   return edit(text, base => applyEdits(base, modify(base, [key], value, FORMATTING)));
+}
+
+/**
+ * Removes one top-level property with its separating comma and, when it sits on its own line, that line.
+ * jsonc-parser's own removal also swallows comments up to the next property, so it is not used here.
+ */
+function removeProperty(text: string, key: string): string {
+  const tree = parseTree(text, [], { allowTrailingComma: true });
+  const prop = tree?.children?.find(p => p.children?.[0]?.value === key);
+  if (!prop) return text;
+
+  let start = prop.offset;
+  let end = prop.offset + prop.length;
+  let after = end;
+  while (after < text.length && /[ \t]/.test(text[after])) after++;
+  if (text[after] === ',') {
+    end = after + 1;
+    while (end < text.length && text[end] === ' ') end++;
+  } else {
+    let before = start - 1;
+    while (before >= 0 && /\s/.test(text[before])) before--;
+    if (text[before] === ',') start = before;
+  }
+
+  let lineStart = start;
+  while (lineStart > 0 && /[ \t]/.test(text[lineStart - 1])) lineStart--;
+  let lineEnd = end;
+  while (lineEnd < text.length && /[ \t]/.test(text[lineEnd])) lineEnd++;
+  if (text[lineEnd] === '\r') lineEnd++;
+  if ((lineStart === 0 || text[lineStart - 1] === '\n') && text[lineEnd] === '\n') {
+    start = lineStart;
+    end = lineEnd + 1;
+  }
+  return text.slice(0, start) + text.slice(end);
+}
+
+/** Removes the given top-level keys that are present, keeping comments and formatting of the rest. */
+export function removeKeys(text: string, keys: string[]): string {
+  const root: unknown = parse(stripBom(text), [], { allowTrailingComma: true });
+  const present = isObject(root) ? keys.filter(k => k in root) : [];
+  if (present.length === 0) return text;
+  return edit(text, base => present.reduce(removeProperty, base));
 }
 
 /** Adds `"key": {}` at the top level when the key is absent; otherwise returns the text unchanged. */

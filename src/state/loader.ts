@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { resolveConfiguration, resolveSolutionPath, resolveStartupProject } from '../settings/resolver';
+import { resolveConfiguration, resolveSolutionPath, resolveStartupProject, settingsPath } from '../settings/resolver';
 import { ParsedSettings, parseSettings } from '../settings/settings';
 import { scanVcxproj, VcxprojScan } from '../solution/projectScan';
 import { parseSln } from '../solution/slnParser';
@@ -9,6 +9,8 @@ import { AppState, initialState, Problem, ProjectEntry } from './store';
 
 export interface LoaderDeps {
   folders: string[];
+  /** Process environment, for ${env:NAME} in settings paths. */
+  env: Record<string, string | undefined>;
   /** Absolute paths of the .sln files in all folders. */
   findSolutions(): Promise<string[]>;
   readText(p: string): Promise<string | undefined>;
@@ -63,7 +65,7 @@ export async function loadWorkspace(deps: LoaderDeps): Promise<AppState> {
   const problems: Problem[] = [];
 
   for (const entry of perFolder) {
-    const r = resolveSolutionPath(entry.parsed.settings, entry.folder, solutions);
+    const r = resolveSolutionPath(entry.parsed.settings, entry.folder, solutions, deps.env);
     if (r.source === 'settings') {
       chosen = entry;
       solutionPath = r.value;
@@ -74,7 +76,7 @@ export async function loadWorkspace(deps: LoaderDeps): Promise<AppState> {
     solutionPath = workspaceDefault(deps.folders, solutions);
     const folder = (solutionPath && folderOf(deps.folders, solutionPath)) ?? deps.folders[0];
     chosen = perFolder.find(e => e.folder === folder) ?? { folder, parsed: parseSettings('') };
-    const stale = resolveSolutionPath(chosen.parsed.settings, chosen.folder, solutions).problem;
+    const stale = resolveSolutionPath(chosen.parsed.settings, chosen.folder, solutions, deps.env).problem;
     if (stale) problems.push({ severity: 'warning', message: stale, action: 'openSettings' });
   }
 
@@ -94,7 +96,7 @@ export async function loadWorkspace(deps: LoaderDeps): Promise<AppState> {
     scanProjects(deps, cppPaths),
     deps.findToolchain({
       ...(settings.toolchain?.vsVersion !== undefined ? { vsVersion: settings.toolchain.vsVersion } : {}),
-      ...(settings.toolchain?.msbuildPath !== undefined ? { msbuildPath: settings.toolchain.msbuildPath } : {}),
+      ...(settings.toolchain?.msbuildPath !== undefined ? { msbuildPath: settings.toolchain.msbuildPath && settingsPath(settings.toolchain.msbuildPath, chosen.folder, deps.env) } : {}),
     }),
   ]);
 

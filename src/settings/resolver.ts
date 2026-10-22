@@ -16,11 +16,18 @@ export interface VariableContext {
 
 const CONTEXT_VARIABLES = ['workspaceFolder', 'solutionDir', 'projectDir', 'targetPath', 'configuration', 'platform'] as const;
 
+/** Environment variable names are case-insensitive on Windows. */
+function envValue(env: Record<string, string | undefined>, name: string): string | undefined {
+  if (env[name] !== undefined) return env[name];
+  const key = Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : env[key];
+}
+
 /** Expands ${name} and ${env:NAME}; unknown or unset context variables stay literal and are listed. */
 export function expandVariables(value: string, ctx: VariableContext): { value: string; unknown: string[] } {
   const unknown: string[] = [];
   const expanded = value.replace(/\$\{([^}]+)\}/g, (whole, name: string) => {
-    if (name.startsWith('env:')) return ctx.env[name.slice(4)] ?? '';
+    if (name.startsWith('env:')) return envValue(ctx.env, name.slice(4)) ?? '';
     const known = (CONTEXT_VARIABLES as readonly string[]).includes(name)
       ? ctx[name as (typeof CONTEXT_VARIABLES)[number]]
       : undefined;
@@ -49,9 +56,19 @@ export function defaultSolution(folder: string, discovered: string[]): string | 
     depth(folder, a) - depth(folder, b) || a.localeCompare(b, undefined, { sensitivity: 'base' }))[0];
 }
 
-export function resolveSolutionPath(settings: VsslnSettings, folder: string, discovered: string[]): Resolved<string> {
+/** A path from the settings file: variables expanded, then resolved against the workspace folder. */
+export function settingsPath(value: string, folder: string, env: Record<string, string | undefined>): string {
+  return path.win32.resolve(folder, expandVariables(value, { workspaceFolder: folder, env }).value);
+}
+
+export function resolveSolutionPath(
+  settings: VsslnSettings,
+  folder: string,
+  discovered: string[],
+  env: Record<string, string | undefined> = {},
+): Resolved<string> {
   if (settings.solution !== undefined) {
-    const wanted = path.win32.resolve(folder, settings.solution);
+    const wanted = settingsPath(settings.solution, folder, env);
     const found = discovered.find(p => samePath(p, wanted));
     if (found) return { value: found, source: 'settings' };
     const fallback = defaultSolution(folder, discovered);

@@ -19,6 +19,16 @@ test('expands every context variable', () => {
   expect(r).toEqual({ value: 'C:\\w\\src|C:\\w\\src\\Game|C:\\out\\Game.exe|Release|x64', unknown: [] });
 });
 
+test('environment variable names are case-insensitive, as on Windows', () => {
+  expect(expandVariables('${env:path}', { workspaceFolder: 'C:\\w', env: { Path: 'C:\\bin' } }).value).toBe('C:\\bin');
+});
+
+test('solution from settings may use variables', () => {
+  expect(resolveSolutionPath({ solution: '${env:SRC}/A.sln' }, 'C:\\w', ['C:\\w\\src\\A.sln'], { SRC: 'C:\\w\\src' }))
+    .toEqual({ value: 'C:\\w\\src\\A.sln', source: 'settings' });
+  expect(resolveSolutionPath({ solution: '${workspaceFolder}/src/A.sln' }, 'C:\\w', ['C:\\w\\src\\A.sln']).source).toBe('settings');
+});
+
 test('missing env variable expands to empty string', () => {
   expect(expandVariables('a${env:NONE}b', { workspaceFolder: 'C:\\w', env: {} })).toEqual({ value: 'ab', unknown: [] });
 });

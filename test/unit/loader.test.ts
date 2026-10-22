@@ -30,6 +30,16 @@ test('toolchain options come from the settings file', async () => {
   expect(deps.toolchainOpts).toEqual([{ vsVersion: '[16,17)' }]);
 });
 
+test('msbuildPath is resolved against the workspace folder and expands variables', async () => {
+  const relative = fixtureDeps({ settings: '{"toolchain": {"msbuildPath": "tools/MSBuild.exe"}}' });
+  await loadWorkspace(relative);
+  expect(relative.toolchainOpts).toEqual([{ msbuildPath: path.join(WORKSPACE, 'tools', 'MSBuild.exe') }]);
+
+  const withEnv = fixtureDeps({ settings: '{"toolchain": {"msbuildPath": "${env:VSDIR}\\\\MSBuild.exe"}}', env: { vsdir: 'E:\\VS' } });
+  await loadWorkspace(withEnv);
+  expect(withEnv.toolchainOpts).toEqual([{ msbuildPath: 'E:\\VS\\MSBuild.exe' }]);
+});
+
 test('missing toolchain still loads the tree and reports an actionable error', async () => {
   const s = await loadWorkspace(fixtureDeps({ toolchain: { problem: 'vswhere.exe not found' } }));
   expect(s.phase).toBe('ready');

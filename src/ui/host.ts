@@ -51,6 +51,7 @@ export function workspaceFolders(): string[] {
 export function loaderDeps(): LoaderDeps {
   return {
     folders: workspaceFolders(),
+    env: process.env,
     async findSolutions() {
       const uris = await vscode.workspace.findFiles('**/*.sln', '**/{node_modules,.git,.vs}/**');
       return uris.filter(u => u.scheme === 'file').map(u => u.fsPath);

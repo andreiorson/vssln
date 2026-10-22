@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { applySelectionEdit, ensureObjectKey, parseSettings } from '../../src/settings/settings';
-import { SettingsFile, SettingsSyntaxError } from '../../src/settings/settingsFile';
+import { applySelectionEdit, ensureObjectKey, parseSettings, removeKeys } from '../../src/settings/settings';
+import { SettingsFile, SettingsSyntaxError, writeSolutionSelection } from '../../src/settings/settingsFile';
 import { memoryFs, readFixture } from './helpers';
 import schema from '../../schemas/vssln.schema.json';
 
@@ -72,6 +72,38 @@ test('writeSelection creates the file and reports it', async () => {
   expect(JSON.parse(fs.files['C:\\w\\.vscode\\vssln.json'])).toEqual({ startupProject: 'Game' });
   expect(await file.writeSelection('configuration', 'Debug|x64')).toEqual({ created: false });
   expect((await file.read()).settings).toEqual({ startupProject: 'Game', configuration: 'Debug|x64' });
+});
+
+test('removeKeys drops top-level keys and keeps comments', () => {
+  const out = removeKeys('{\n  "solution": "a.sln",\n  "configuration": "Debug|x64",\n  // keep\n  "environment": {}\n}', ['solution', 'configuration', 'startupProject']);
+  expect(out).toContain('// keep');
+  expect(parseSettings(out).settings).toEqual({ environment: {} });
+});
+
+test('removeKeys handles the last property and keeps a trailing comment line', () => {
+  expect(removeKeys('{\n  "a": 1,\n  "solution": "x.sln"\n}', ['solution'])).toBe('{\n  "a": 1\n}');
+  expect(removeKeys('{\n  "solution": "x.sln",\n  // about a\n  "a": 1\n}', ['solution'])).toBe('{\n  // about a\n  "a": 1\n}');
+  expect(removeKeys('{ "solution": "x.sln", "a": 1 }', ['solution'])).toBe('{ "a": 1 }');
+  expect(removeKeys('﻿{\n  "solution": "x.sln"\n}', ['solution'])).toBe('﻿{\n}');
+});
+
+test('choosing a solution resets the selection in its folder and clears it in the others', async () => {
+  const fs = memoryFs({
+    'C:\\a\\.vscode\\vssln.json': '{ "solution": "A.sln", "configuration": "Debug|x64" }',
+    'C:\\b\\.vscode\\vssln.json': '{ "solution": "old/B.sln", "configuration": "Debug|x64", "startupProject": "Game", "environment": { "X": "1" } }',
+  });
+  expect(await writeSolutionSelection(['C:\\a', 'C:\\b', 'C:\\c'], 'C:\\b', 'src/B.sln', fs)).toEqual({ created: false });
+  expect(JSON.parse(fs.files['C:\\a\\.vscode\\vssln.json'])).toEqual({ configuration: 'Debug|x64' });
+  expect(JSON.parse(fs.files['C:\\b\\.vscode\\vssln.json'])).toEqual({ solution: 'src/B.sln', environment: { X: '1' } });
+  expect(fs.files['C:\\c\\.vscode\\vssln.json']).toBeUndefined();
+});
+
+test('choosing a solution leaves a broken file in another folder untouched', async () => {
+  const broken = readFixture('settings/broken.json');
+  const fs = memoryFs({ 'C:\\a\\.vscode\\vssln.json': broken });
+  expect(await writeSolutionSelection(['C:\\a', 'C:\\b'], 'C:\\b', 'B.sln', fs)).toEqual({ created: true });
+  expect(fs.files['C:\\a\\.vscode\\vssln.json']).toBe(broken);
+  expect(JSON.parse(fs.files['C:\\b\\.vscode\\vssln.json'])).toEqual({ solution: 'B.sln' });
 });
 
 test('read reports a missing file', async () => {

@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { addToExclude, isIgnored } from '../settings/gitExclude';
 import { ensureObjectKey, SelectionKey } from '../settings/settings';
-import { SETTINGS_RELATIVE_PATH, SettingsFile, SettingsSyntaxError } from '../settings/settingsFile';
+import { SETTINGS_RELATIVE_PATH, SettingsFile, SettingsSyntaxError, writeSolutionSelection } from '../settings/settingsFile';
 import { TreeNode } from '../solution/model';
 import { loadWorkspace } from '../state/loader';
 import { Store } from '../state/store';
@@ -35,15 +35,25 @@ export class Controller {
   }
 
   /** Writes one selection into the folder's vssln.json, offers the git exclude once, and reloads. */
-  async writeSelection(key: SelectionKey, value: string, folder = this.settingsFolder()): Promise<void> {
-    if (!folder) return;
-    const file = new SettingsFile(folder, nodeFs);
-    if (vscode.workspace.textDocuments.some(d => d.isDirty && d.uri.scheme === 'file' && samePath(d.uri.fsPath, file.path))) {
+  async writeSelection(key: SelectionKey, value: string): Promise<void> {
+    const folder = this.settingsFolder();
+    if (folder) await this.write(folder, [folder], () => new SettingsFile(folder, nodeFs).writeSelection(key, value));
+  }
+
+  /** Selects a solution: its folder's file gets it, the other folders' files lose theirs (spec 5, multi-root). */
+  async writeSolution(folder: string, relPath: string): Promise<void> {
+    const folders = workspaceFolders();
+    await this.write(folder, folders, () => writeSolutionSelection(folders, folder, relPath, nodeFs));
+  }
+
+  private async write(folder: string, touched: string[], change: () => Promise<{ created: boolean }>): Promise<void> {
+    const paths = touched.map(f => new SettingsFile(f, nodeFs).path);
+    if (vscode.workspace.textDocuments.some(d => d.isDirty && d.uri.scheme === 'file' && paths.some(p => samePath(d.uri.fsPath, p)))) {
       void vscode.window.showWarningMessage('vssln.json has unsaved changes. Save or revert it before changing the selection.');
       return;
     }
     try {
-      const { created } = await file.writeSelection(key, value);
+      const { created } = await change();
       // The prompt stays pending until the notification is closed, so it must not hold up the reload.
       if (created) void this.offerGitExclude(folder);
     } catch (e) {
@@ -122,7 +132,7 @@ export function registerCommands(store: Store, controller: Controller, log: vsco
       if (!choice) return;
       const folder = folderOf(folders, choice.value) ?? controller.settingsFolder();
       if (!folder) return;
-      await controller.writeSelection('solution', path.relative(folder, choice.value).replace(/\\/g, '/'), folder);
+      await controller.writeSolution(folder, path.relative(folder, choice.value).replace(/\\/g, '/'));
     }),
 
     register('vssln.selectConfiguration', async () => {

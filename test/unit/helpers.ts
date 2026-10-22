@@ -45,11 +45,12 @@ export const TOOLCHAIN: ToolchainResult = {
   instance: { installationPath: 'C:\\VS', installationVersion: '18.0', displayName: 'VS', msbuildPath: 'C:\\VS\\MSBuild\\Current\\Bin\\MSBuild.exe', devEnvDir: 'C:\\VS\\Common7\\IDE\\' },
 };
 
-export function fixtureDeps(opts: { settings?: string; toolchain?: ToolchainResult; solutions?: string[]; folders?: string[]; files?: Record<string, string> } = {}): LoaderDeps & { toolchainOpts: unknown[] } {
+export function fixtureDeps(opts: { settings?: string; toolchain?: ToolchainResult; solutions?: string[]; folders?: string[]; files?: Record<string, string>; env?: Record<string, string> } = {}): LoaderDeps & { toolchainOpts: unknown[] } {
   const toolchainOpts: unknown[] = [];
   return {
     toolchainOpts,
     folders: opts.folders ?? [WORKSPACE],
+    env: opts.env ?? {},
     async findSolutions() {
       return opts.solutions ?? [path.join(WORKSPACE, 'Sample.sln')];
     },
