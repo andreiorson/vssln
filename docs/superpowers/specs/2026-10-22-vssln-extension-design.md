@@ -190,15 +190,33 @@ A user may still write a `launch.json` entry with `"type": "vssln", "project": "
 
 ## 8. IntelliSense
 
-As in the brief (sections 2 to 8), with these changes:
+As in the brief (sections 2 to 8), with the changes below. The solution and configuration come from the shared selection (section 4.1), MSBuild and `DevEnvDir` from `toolchain/vswhere`, `envKeys` is replaced by `environment` (section 5), and progress feeds the Status view, project rows and the status bar instead of a webview.
 
-- The solution and configuration come from the shared selection (section 4.1), not from the panel of the prototype.
-- MSBuild and `DevEnvDir` come from `toolchain/vswhere` unless overridden.
-- `envKeys` is replaced by `environment` (section 5).
-- Progress and per-project status feed the Status row, project descriptions and decorations instead of a webview.
-- Pausing during a build is driven by the coordinator (section 9).
+### 8.1 Verified at the start of phase 4 (VS 2026, MSBuild 18, toolset v145, cpptools 1.34.4, `samples/Engine`)
 
-The open question of the brief (cpptools re-query after `didChangeCustomConfiguration`, automatic provider selection) is verified at the start of phase 4.
+- **No hand-copied task call.** The stock `GetClCommandLines` target (`Microsoft.Cpp.DesignTime.targets`) returns one `ClCommandLines` item per option set, and each item carries the sources it applies to in `%(Files)`. A targets file of our own (`resources/vssln-intellisense.targets`, hooked in through `CustomAfterMicrosoftCommonTargets`, as for debugging) depends on `GetProjectDirectories;GetClCommandLines` and prints `VSSLN|CL|<ConfigurationOptions>|<files>|<command line>`, `VSSLN|IncludePath|…`, `VSSLN|ExternalIncludePath|…` with `<Message>`, which keeps `;` intact (the brief's `WriteLinesToFile` trap does not arise). The brief's per-file target with a copied `CLCommandLine` parameter list is not needed.
+- The item with `ConfigurationOptions=true` (the stock target adds a fake `__temporary.cpp` for it) is the project's default command line: the one Visual Studio uses for headers. Its `Files` are the real sources that share those options.
+- Items with `/scanModules` (the standard library modules `std.ixx`, `std.compat.ixx`) are not project files and are skipped.
+- `$(IncludePath)` holds the MSVC, ATL/MFC and Windows SDK include directories; `$(ExternalIncludePath)` holds the same here. The command line has none of them, so both are appended (without duplicates).
+- One project takes about 0.5 s for the command lines and 0.2 s for `-preprocess` (310 imported files for a plain C++ project).
+- **cpptools needs no provider selection.** With no `C_Cpp.default.configurationProvider` and no `c_cpp_properties.json`, cpptools 1.34 asks a registered provider for every opened file. After `didChangeCustomConfiguration` it asks again about files it was refused before (`canProvideConfiguration` false, then true) and takes their configuration. The brief's open question is closed; the setting is not written by the extension.
+
+### 8.2 Design
+
+- **Run.** Per project, two MSBuild runs in the context a solution build gives it (mapped `Configuration|Platform`, `Solution*` properties, `DevEnvDir`, `msbuild.properties`, the settings `environment`, English output), plus the design-time properties of the brief (4.1): the command lines with `-t:VsslnIntelliSense`, and `-preprocess` for the input files. No shell, argument arrays, a timeout per run.
+- **Records.** A command line is split with the MSVC rules (`debug/commandLine`) and mapped to `includePath` (`/I`, then the system directories), `defines` (`/D`; `/U` removes), `forcedInclude` (`/FI`), `standard` (`/std:c++14|17|20|latest` → `c++14|17|20|23`, `/std:c11|c17|clatest` for C files compiled with `/TC` or a `.c` extension; default `c++14` / `c17`), `intelliSenseMode` from the platform (`x64` → `windows-msvc-x64`, `Win32` → `windows-msvc-x86`, `ARM64` → `windows-msvc-arm64`). Precompiled header switches are dropped (cpptools reads the `#include` instead).
+- **From a file to its configuration.** A source file listed in a record has that record. A file of a project without a record of its own (headers, excluded sources) gets the project's default command line. A file listed by several projects takes the startup project when it lists the file, otherwise the first in solution order (the rule of Sync with Active Document). A file in no project but inside a project's directory takes the nearest such project's default command line. Other files get no answer, so cpptools uses its defaults. Project membership comes from the items already loaded for the tree (section 4.7), so it is known before any MSBuild run.
+- **Cache.** One JSON file per project and configuration under the extension's workspace storage, written atomically; a corrupt file is a miss. Key: MSBuild path, project path, its mapped configuration and platform, solution path, `msbuild.properties`, `environment`, and a version of the targets file. Inputs: the files `-preprocess` names, with SHA-1 content hashes, plus commented-out imports that resolve to a path that does not exist (watched for appearing), as in the brief (4.6). An entry is fresh when the key matches, every input has the same hash and no awaited file appeared. Hashes of shared files are computed once per pass.
+- **Scheduling.** All C++ projects that exist and are mapped in the current configuration, `msbuild.maxParallelism` workers (0: half the cores, at least 1). Projects of open editors first; switching the active editor moves its project to the front. A failure never stops the others. A configuration or solution change cancels the pass (kills the processes, writes nothing) and starts a new one; cache files of other configurations stay, so switching back is instant.
+- **Builds.** A build and the computation never run at the same time: starting a build cancels the running MSBuild processes of the pass (their projects go back to the queue); the pass resumes when the build ends.
+- **Freshness while working.** A solution reload (a `.vcxproj`, `.filters`, `.sln` or `vssln.json` change) re-checks every project against its cache entry and recomputes the stale ones. A change of a `.props` or `.targets` inside the workspace re-checks the projects that list it as an input. Inputs outside the workspace (Visual Studio itself) are re-checked on every reload and by Recompute.
+- **cpptools.** The provider (`vscode-cpptools` API v6) is registered when the extension starts and answers `canProvideConfiguration` with true only for files that have a configuration now; browse configuration is declined. After projects become ready, `didChangeCustomConfiguration` is sent, coalesced to at most one per second.
+- **UI.**
+  - Status view: an IntelliSense row: icon `sync~spin` while computing, `check` (green) when everything is ready, `warning` when some projects failed; description `12 / 15 ready`, `computing 3 · 12 / 15`, `2 failed · 13 / 15`; click shows the log; inline action Recompute.
+  - Project rows: while the pass runs, a project without data shows `IntelliSense: waiting` or `IntelliSense: computing` after its usual description; a failed one shows `IntelliSense failed` with the MSBuild output tail in the tooltip. Build state wins over IntelliSense state in the description.
+  - Status bar: `$(sync~spin) IntelliSense 12/15` while computing; `$(warning) IntelliSense 2 failed` after failures; hidden when all is ready.
+  - Commands: Recompute IntelliSense (Status overflow menu and IntelliSense row: drops the cache entries of the current configuration and recomputes everything) and Recompute IntelliSense for project (project context menu).
+- **Log.** One line per computed project (`Render: 0.7 s`, `Render: from cache`, `Audio: failed, see below` with the output tail) in the VS Solution log channel.
 
 ## 9. Architecture
 
