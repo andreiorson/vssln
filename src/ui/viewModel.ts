@@ -29,6 +29,10 @@ export interface ProjectRow {
   contextValue: string;
   resourceUri: string;
   inactive: boolean;
+  /** The icon comes from the file icon theme (by resourceUri, or by openPath for files) instead of `icon`. */
+  themeIcon?: 'file' | 'folder';
+  /** A file the row opens on click. */
+  openPath?: string;
 }
 
 export interface Decoration {
@@ -263,7 +267,42 @@ function inactiveReason(status: ProjectStatus, building: boolean): string | unde
   return building ? undefined : status.notBuilt;
 }
 
+export const ITEM_SCHEME = 'vssln-item';
+
+/** Why a file row is inactive; also the first segment of its URI, so the decoration needs no lookup. */
+const ITEM_REASONS: Record<string, string> = { missing: 'file not found', unevaluated: 'not evaluated' };
+
+/** Synthetic URI of a filter or file row: `vssln-item:/<state>/<encoded node id>`. */
+export function itemUri(node: TreeNode): string {
+  const state = node.kind === 'filter' ? 'filter' : !node.item?.path ? 'unevaluated' : node.item.missing ? 'missing' : 'file';
+  return `${ITEM_SCHEME}:/${state}/${encodeURIComponent(node.id)}`;
+}
+
+function itemRow(node: TreeNode): ProjectRow {
+  const resourceUri = itemUri(node);
+  if (node.kind === 'filter') {
+    return { label: node.label, icon: 'folder', themeIcon: 'folder', contextValue: 'filter', resourceUri, inactive: false };
+  }
+  const item = node.item!;
+  const tooltip = item.path ?? item.include;
+  if (item.path && !item.missing) {
+    return { label: node.label, tooltip, icon: 'file', themeIcon: 'file', openPath: item.path, contextValue: 'file', resourceUri, inactive: false };
+  }
+  const state = item.path ? 'missing' : 'unevaluated';
+  return {
+    label: node.label,
+    description: ITEM_REASONS[state],
+    // The decoration adds the reason to the tooltip.
+    tooltip,
+    icon: 'circle-slash',
+    contextValue: `file.${state}`,
+    resourceUri,
+    inactive: true,
+  };
+}
+
 export function projectRow(node: TreeNode, s: AppState): ProjectRow {
+  if (node.kind === 'filter' || node.kind === 'file') return itemRow(node);
   const resourceUri = projectUri(node.id);
   if (node.kind === 'folder' || !node.project) {
     const description = folderBuildDescription(node, s);
@@ -304,6 +343,10 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
 }
 
 export function projectDecoration(uri: string, s: AppState): Decoration | undefined {
+  if (uri.startsWith(`${ITEM_SCHEME}:/`)) {
+    const reason = ITEM_REASONS[uri.slice(ITEM_SCHEME.length + 2).split('/')[0]];
+    return reason ? { color: 'disabledForeground', tooltip: reason } : undefined;
+  }
   const project = s.solution?.projects.find(p => projectUri(p.guid) === uri);
   if (!project) return undefined;
   const status = projectStatus(project, s);

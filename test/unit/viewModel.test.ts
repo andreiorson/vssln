@@ -1,4 +1,4 @@
-import { beforeAll, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 import { buildTree, TreeNode } from '../../src/solution/model';
 import { AppState, failedState } from '../../src/state/store';
 import { projectDecoration, projectRow, projectUri, statusBarItems, statusRows } from '../../src/ui/viewModel';
@@ -121,4 +121,34 @@ test('status bar items', () => {
     { id: 'startup', text: '$(rocket) Game', tooltip: 'Startup project', command: 'vssln.selectStartupProject' },
   ]);
   expect(statusBarItems({ ...s, phase: 'noSolution' })).toEqual([]);
+});
+
+describe('filter and file rows', () => {
+  const guid = '{AAAAAAAA-0000-0000-0000-000000000001}';
+  const file = (item: TreeNode['item']): TreeNode => ({ id: `${guid}/i/x`, kind: 'file', label: 'a.cpp', children: [], projectGuid: guid, item });
+
+  test('a present file opens and takes its icon from the theme', () => {
+    const row = projectRow(file({ include: 'a.cpp', path: 'C:\s\a.cpp', missing: false }), s);
+    expect(row).toMatchObject({ label: 'a.cpp', tooltip: 'C:\s\a.cpp', icon: 'file', themeIcon: 'file', openPath: 'C:\s\a.cpp', contextValue: 'file', inactive: false });
+    expect(row.description).toBeUndefined();
+  });
+
+  test('a missing file is greyed out and cannot be opened', () => {
+    const row = projectRow(file({ include: 'a.cpp', path: 'C:\s\a.cpp', missing: true }), s);
+    expect(row).toMatchObject({ description: 'file not found', icon: 'circle-slash', contextValue: 'file.missing', inactive: true });
+    expect(row.openPath).toBeUndefined();
+    expect(projectDecoration(row.resourceUri, s)).toEqual({ color: 'disabledForeground', tooltip: 'file not found' });
+  });
+
+  test('an item that needs MSBuild is shown as text', () => {
+    const row = projectRow(file({ include: '$(X)\a.cpp', missing: false }), s);
+    expect(row).toMatchObject({ description: 'not evaluated', tooltip: '$(X)\a.cpp', icon: 'circle-slash', contextValue: 'file.unevaluated', inactive: true });
+    expect(projectDecoration(row.resourceUri, s)).toEqual({ color: 'disabledForeground', tooltip: 'not evaluated' });
+  });
+
+  test('a filter is a folder from the theme', () => {
+    const row = projectRow({ id: `${guid}/f/source files`, kind: 'filter', label: 'Source Files', children: [], projectGuid: guid }, s);
+    expect(row).toMatchObject({ label: 'Source Files', icon: 'folder', themeIcon: 'folder', contextValue: 'filter', inactive: false });
+    expect(projectDecoration(row.resourceUri, s)).toBeUndefined();
+  });
 });

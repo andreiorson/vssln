@@ -1,7 +1,14 @@
 import { ParsedSolution, SlnFolder, SlnProject } from './slnParser';
 
-/** Later kinds: 'filter' | 'file' | 'references' | 'reference'. */
-export type NodeKind = 'folder' | 'project';
+/** Later kinds: 'references' | 'reference'. */
+export type NodeKind = 'folder' | 'project' | 'filter' | 'file';
+
+/** A file of a project; `path` is absent when the include needs MSBuild to be evaluated. */
+export interface ItemInfo {
+  include: string;
+  path?: string;
+  missing: boolean;
+}
 
 export interface TreeNode {
   id: string;
@@ -10,6 +17,9 @@ export interface TreeNode {
   children: TreeNode[];
   project?: SlnProject;
   folder?: SlnFolder;
+  item?: ItemInfo;
+  /** The project a filter or file belongs to. */
+  projectGuid?: string;
 }
 
 function byLabel(a: TreeNode, b: TreeNode): number {
