@@ -133,6 +133,18 @@ test('more bookkeeping is hidden: relative object files, the solution start, the
   expect(p.push('         Note: including file: x.h').display).toBe('1>Note: including file: x.h');
 });
 
+test('projects of any MSBuild type get numbers and results; solution metaprojects do not', () => {
+  const p = new OutputParser();
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Tool\\Tool.csproj" (2) on node 1 (default targets).')).toEqual({
+    events: [{ kind: 'projectStarted', path: 'C:\\a\\Tool\\Tool.csproj', target: 'Build' }],
+    display: '1>------ Build started: Project: Tool.csproj ------',
+  });
+  expect(p.push('     2>Done Building Project "C:\\a\\Tool\\Tool.csproj" (default targets) -- FAILED.').events).toEqual([
+    { kind: 'projectFinished', path: 'C:\\a\\Tool\\Tool.csproj', target: 'Build', failed: true },
+  ]);
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\R.vcxproj.metaproj" (3) on node 1 (default targets).').events).toEqual([]);
+});
+
 test('only the work of the action gets a number and a header: a Clean that a Rebuild calls on the side does not', () => {
   const p = new OutputParser({ counts: target => target === 'Rebuild' });
   expect(p.push('     4>Project "C:\\a\\G.vcxproj" (4) is building "C:\\a\\R.vcxproj" (10) on node 1 (Clean target(s)).').display).toBeUndefined();

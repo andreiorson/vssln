@@ -15,6 +15,7 @@ const shape = (nodes: TreeNode[]): unknown[] => nodes.map(n => (n.kind === 'filt
 test('filters nest by their path and come before files', () => {
   const items: ProjectItems = {
     references: [],
+    unresolvedReferences: false,
     filters: ['Source Files', 'Source Files\\Sub', 'Empty'],
     items: [item('z.cpp'), item('a.cpp', 'Source Files'), item('src\\b.cpp', 'Source Files\\Sub'), item('x\\deep.h', 'Headers\\Deep\\')],
   };
@@ -27,13 +28,13 @@ test('filters nest by their path and come before files', () => {
 });
 
 test('files sort by name ignoring case; same names stay apart', () => {
-  const nodes = itemsTree(GUID, { filters: [], references: [], items: [item('main.cpp'), item('b\\Util.h'), item('a\\util.h'), item('Alpha.h')] }, all);
+  const nodes = itemsTree(GUID, { filters: [], references: [], unresolvedReferences: false, items: [item('main.cpp'), item('b\\Util.h'), item('a\\util.h'), item('Alpha.h')] }, all);
   expect(nodes.map(n => n.label)).toEqual(['Alpha.h', 'main.cpp', 'util.h', 'Util.h']);
   expect(new Set(nodes.map(n => n.id)).size).toBe(4);
 });
 
 test('ids are stable and lower case', () => {
-  const items: ProjectItems = { references: [], filters: ['Source Files\\Sub'], items: [item('src\\A.cpp', 'Source Files\\Sub')] };
+  const items: ProjectItems = { references: [], unresolvedReferences: false, filters: ['Source Files\\Sub'], items: [item('src\\A.cpp', 'Source Files\\Sub')] };
   const first = itemsTree(GUID, items, all);
   const sub = first[0].children[0];
   expect(first[0].id).toBe('{aaaaaaaa-0000-0000-0000-000000000001}/f/source files');
@@ -44,7 +45,7 @@ test('ids are stable and lower case', () => {
 });
 
 test('missing and not evaluated items', () => {
-  const nodes = itemsTree(GUID, { filters: [], references: [], items: [item('gone.cpp'), item('$(Other)\\q.h', undefined, false)] }, p => !p.endsWith('gone.cpp'));
+  const nodes = itemsTree(GUID, { filters: [], references: [], unresolvedReferences: false, items: [item('gone.cpp'), item('$(Other)\\q.h', undefined, false)] }, p => !p.endsWith('gone.cpp'));
   expect(nodes.map(n => [n.label, n.item])).toEqual([
     ['$(Other)\\q.h', { include: '$(Other)\\q.h', missing: false }],
     ['gone.cpp', { include: 'gone.cpp', path: 'C:\\s\\P\\gone.cpp', missing: true }],

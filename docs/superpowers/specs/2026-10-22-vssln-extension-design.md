@@ -127,7 +127,8 @@ The panel writes selections into the file with `jsonc-parser` edits, so comments
   "environment": { "ENGINE_SDK": "${workspaceFolder}/sdk" },
 
   "build": {
-    "buildBeforeDebug": true
+    "buildBeforeDebug": true,
+    "waves": true                           // build in waves along the project dependencies (section 6)
   },
 
   "msbuild": {
@@ -171,7 +172,12 @@ Build output goes to one Output channel, `VS Solution: Build`, cleared at the st
   - The graph: every project the solution configuration builds (`Build.0`), of any kind, with edges from the `.sln` project dependencies and from the `ProjectReference` items of C++ projects (resolved against the solution's projects; dependencies through projects outside that set count transitively). A single-project build takes the project and everything it depends on.
   - Wave *n* holds the projects whose dependencies are all in earlier waves. Each wave is one MSBuild run on a solution filter (`.slnf`, written to the extension's log folder) that lists the wave's projects, with the usual properties and `-m`, plus `-p:BuildProjectReferences=false` when every reference of the wave's projects was built in an earlier wave (the references are not built again). Each project is thus read only after all its dependencies finished.
   - A project that fails: everything that depends on it is not built and is marked `skipped` with the reason (`Math failed`); the others go on, as in Visual Studio. A Stop ends the whole run.
-  - Rebuild: a Clean of everything (one run on the `.sln`), then the build in waves. Clean: one run, the order does not matter.
+  - Rebuild: each wave runs `Rebuild` on its projects (a Clean of everything first would read every project and fail the same way). Clean: one run, the order does not matter (it can fail with `MSB4019` from a clean state; nothing to clean then).
+  - The results of all project types (C#, other MSBuild projects) decide what is skipped, not only the C++ ones the panel follows. A wave that fails without naming a project counts every project of it that did not succeed as failed. MSBuild that cannot start ends the build at once. A Stop between two runs (while the next filter is written) ends the build too.
+  - `BuildProjectReferences=false` is passed only when every project of the wave is C++ with all its references read and built in earlier waves. A `ProjectReference` the textual reading cannot resolve (an unknown macro) keeps references built for that wave. References added by imported property sheets are not seen at all: such a project may land in an earlier wave than a project it references; set `build.waves` to `false` for such a solution.
+  - Solution filters need MSBuild 16.7 (Visual Studio 2019 16.7); with an older one the build is one run and the output says why. An explicit `toolchain.msbuildPath` without a version is taken as new enough unless it is the `MSBuild\15.0` folder of Visual Studio 2017.
+  - The price: every wave waits for its slowest project, even for projects of the next wave that do not need it, and every run reads the solution again; a solution without generated imports may build slower than in one run. `"build": { "waves": false }` in `vssln.json` turns the waves off.
+  - IntelliSense: a project whose evaluation failed with `MSB4019` (a missing import) is computed again when a property sheet in the workspace is created or changed, so it recovers after the producing project was built.
   - A dependency cycle: one run on the `.sln` as before, with a warning in the output naming the cycle.
   - The output stays one log: project numbers continue across waves, MSBuild's per-run summary is replaced by one summary of the whole build (result, warnings, errors, time); the file log gets every run appended. The cost is one MSBuild start per wave (the depth of the graph), about a second each for an up-to-date build.
 - Progress: parsed from MSBuild console output (project started, project finished, errors, warnings) into per-project build states. This format is the main risk of this part and is verified first against a real solution; fallback is to show only the final result and the error list.

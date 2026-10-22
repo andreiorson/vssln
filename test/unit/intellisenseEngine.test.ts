@@ -23,6 +23,8 @@ interface Options {
   timeout?: string[];
   writeFails?: boolean;
   removeFails?: boolean;
+  /** What a failing MSBuild run prints (MSB4019, a missing import, by default). */
+  failOutput?: string;
   /** The first cache read takes this long. */
   slowFirstRead?: number;
 }
@@ -74,7 +76,7 @@ async function setup(o: Options = {}, shared?: { files: Map<string, string>; cac
         });
       }
       if (o.timeout?.includes(name)) throw Object.assign(new Error(`Command failed: C:\\VS\\MSBuild.exe ${args.join(' ')}`), { killed: true, stdout: 'partial output\n', stderr: '' });
-      if (o.fail?.includes(name)) return { code: 1, stdout: 'Build started.\nerror MSB4019: The imported project was not found.\n', stderr: '' };
+      if (o.fail?.includes(name)) return { code: 1, stdout: o.failOutput ?? 'Build started.\nerror MSB4019: The imported project was not found.\n', stderr: '' };
       const dir = path.win32.dirname(project);
       return { code: 0, stdout: `  VSSLN|CL|true|${dir}\\a.cpp|/c /D ${flag}\n  VSSLN|IncludePath|C:\\inc\n  VSSLN|ExternalIncludePath|\n`, stderr: '' };
     },
@@ -282,6 +284,16 @@ test('a failed project is tried again when files change (its missing import may 
   await done(h.engine);
   expect(h.runs.filter(r => r.endsWith(':cl'))).toEqual(['Math:cl']);
   expect(h.status(MATH)!.status).toBe('ready');
+});
+
+test('a project that failed for another reason than a missing import is not tried again on every change', async () => {
+  const h = await setup({ fail: ['Math'], failOutput: 'error MSB4025: The project file could not be loaded.\n' });
+  h.engine.start();
+  await done(h.engine);
+  h.runs.length = 0;
+  h.engine.recheck([path.join(WORKSPACE, 'unrelated.props')]);
+  await done(h.engine);
+  expect(h.runs).toEqual([]);
 });
 
 test('pause and resume at once leave no project waiting', async () => {

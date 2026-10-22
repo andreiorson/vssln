@@ -27,6 +27,16 @@ export interface SessionDeps {
 
 type RunResult = { exitCode: number | null; cancelled: boolean };
 
+/**
+ * Solution filters (.slnf) need MSBuild 16.7. The version comes from vswhere; an explicit msbuildPath has none, and
+ * only the folder of Visual Studio 2017 (MSBuild\15.0) is known to be too old there.
+ */
+export function solutionFiltersSupported(toolchain: { installationVersion: string; msbuildPath: string }): boolean {
+  const m = /^(\d+)\.(\d+)/.exec(toolchain.installationVersion);
+  if (m) return Number(m[1]) > 16 || (Number(m[1]) === 16 && Number(m[2]) >= 7);
+  return !/[\\/]MSBuild[\\/]15\.0[\\/]/i.test(toolchain.msbuildPath);
+}
+
 /** "00:01:02.35", as MSBuild prints its elapsed time. */
 function elapsed(ms: number): string {
   const s = Math.max(0, ms) / 1000;
@@ -63,7 +73,9 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   const properties = s.settings.msbuild?.properties ?? {};
   // Build and Rebuild go in waves along the dependency graph, so that every project is read by MSBuild only after
   // the projects it depends on were built (spec section 6). One wave, or a cycle, is the plain run as before.
-  const plan = request.action === 'Clean' ? undefined : planWaves(sln, config, s.projects, request.project);
+  const wavesWanted = request.action !== 'Clean' && s.settings.build?.waves !== false;
+  const filtersSupported = solutionFiltersSupported(toolchain);
+  const plan = wavesWanted && filtersSupported ? planWaves(sln, config, s.projects, request.project) : undefined;
   const waves = plan && !plan.cycle && plan.waves.length > 1 ? plan : undefined;
   const isCpp = (guid: string) => sln.projects.some(p => p.guid === guid && p.kind === 'vcxproj');
   const expected = waves && request.project
@@ -78,6 +90,11 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   deps.onStarted?.();
   deps.write(`${request.action} ${request.project ? request.project.name : path.win32.basename(sln.path)} (${config.name})`);
   if (plan?.cycle) deps.write(`The project dependencies form a cycle (${plan.cycle.join(' → ')}); building the solution in one run.`);
+  if (wavesWanted && !filtersSupported) deps.write('Building the solution in one run: building in waves needs MSBuild 16.7 or newer (Visual Studio 2019 16.7).');
+  deps.runner.begin();
+  /** Project results of all runs, by guid (true: failed), whatever the project type. */
+  const outcomes = new Map<string, boolean>();
+  let startFailed = false;
 
   const parser = new OutputParser({
     configurationOf: projectPath => {
@@ -101,17 +118,24 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
           if (e.kind === 'diagnostic') deps.onDiagnostic?.(e);
           if (e.kind === 'projectFinished' && counts(request.action, e.target)) {
             const n = parser.numberOf(e.path);
-            deps.write(`${n === undefined ? '' : `${n}>`}${path.win32.basename(e.path).replace(/\.vcxproj$/i, '')}: ${e.failed ? 'FAILED' : 'succeeded'}`);
+            deps.write(`${n === undefined ? '' : `${n}>`}${path.win32.basename(e.path).replace(/\.[a-z]*proj$/i, '')}: ${e.failed ? 'FAILED' : 'succeeded'}`);
+            const guid = guidByPath(e.path);
+            if (guid) outcomes.set(guid, e.failed || outcomes.get(guid) === true);
           }
         }
-        if (parsed.events.length === 0) return;
+        // The panel follows C++ projects; other project types count only for the waves (outcomes above).
+        const tracked = parsed.events.filter(e => e.kind === 'diagnostic' || /\.vcxproj$/i.test(e.path));
+        if (tracked.length === 0) return;
         deps.store.update(st => {
           let build = st.build;
-          for (const e of parsed.events) build = applyBuildEvent(build, e, guidByPath, deps.now());
+          for (const e of tracked) build = applyBuildEvent(build, e, guidByPath, deps.now());
           return { ...st, build };
         });
       },
-      message => deps.write(`MSBuild could not start: ${message}`),
+      message => {
+        startFailed = true;
+        deps.write(`MSBuild could not start: ${message}`);
+      },
     );
   };
 
@@ -119,31 +143,29 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   const runWaves = async (plan: WavePlan): Promise<RunResult> => {
     let ok = true;
     let appendLog = false;
-    if (request.action === 'Rebuild') {
-      const cleaned = await run(buildArgs({ sln, config, toolchain, request: { ...request, action: 'Clean' }, properties, logFile }));
-      if (cleaned.cancelled || cleaned.exitCode !== 0) return cleaned;
-      appendLog = true;
-    }
     const skipped = new Set<string>();
     for (let i = 0; i < plan.waves.length; i++) {
       const wave = plan.waves[i].filter(g => !skipped.has(g));
       if (wave.length === 0) continue;
       const file = path.win32.join(deps.logDir, `wave-${i + 1}.slnf`);
       await deps.writeFile(file, solutionFilter(sln, wave));
+      // A Stop while no MSBuild ran (between two waves) ends the build too.
+      if (deps.runner.stopped) return { exitCode: null, cancelled: true };
       deps.write(`Wave ${i + 1}/${plan.waves.length}: ${wave.map(nameOf).join(', ')}`);
+      // Rebuild rebuilds each wave: a Clean of everything first would read every project and fail the same way.
       const r = await run(buildArgs({
-        sln, config, toolchain, request: { action: 'Build' }, properties, logFile, solutionFile: file, appendLog,
+        sln, config, toolchain, request: { action: request.action }, properties, logFile, solutionFile: file, appendLog,
         ...(plan.skipReferences[i] ? { extraProperties: { BuildProjectReferences: 'false' } } : {}),
       }));
       appendLog = true;
       if (r.cancelled) return r;
+      if (startFailed) return r;
       if (r.exitCode === 0) continue;
       ok = false;
-      // The failed projects of the wave; when MSBuild failed without naming one (a project type we do not follow),
-      // every project of the wave that did not succeed.
-      const status = (g: string) => deps.store.state.build.projects.get(g)?.status;
-      const failed = wave.filter(g => status(g) === 'failed');
-      for (const f of failed.length > 0 ? failed : wave.filter(g => status(g) !== 'succeeded')) {
+      // The failed projects of the wave; when MSBuild failed without naming one, every project of the wave that did
+      // not succeed.
+      const failed = wave.filter(g => outcomes.get(g) === true);
+      for (const f of failed.length > 0 ? failed : wave.filter(g => outcomes.get(g) !== false)) {
         const dependents = plan.dependents(f).filter(g => !skipped.has(g));
         if (dependents.length === 0) continue;
         for (const g of dependents) skipped.add(g);

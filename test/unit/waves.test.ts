@@ -42,7 +42,7 @@ function solution(list: P[]) {
   const projects = new Map<string, ProjectEntry>(
     list.flatMap((p, i) => (p.csharp ? [] : [[guid(i + 1), p.missing ? { exists: false } : {
       exists: true,
-      items: { items: [], filters: [], references: (p.refs ?? []).map(r => (r.includes('\\') ? r : `C:\\s\\${r}\\${r}.vcxproj`)) },
+      items: { items: [], filters: [], unresolvedReferences: false, references: (p.refs ?? []).map(r => (r.includes('\\') ? r : `C:\\s\\${r}\\${r}.vcxproj`)) },
     }]] as [string, ProjectEntry][])),
   );
   const names = (guids: string[]) => guids.map(g => sln.projects.find(p => p.guid.toUpperCase() === g.toUpperCase())!.name);
@@ -83,6 +83,28 @@ test('a wave with a project whose references are unknown (not C++) builds refere
   expect(plan.skipReferences).toEqual([false, true]);
 });
 
+test('a project with references this reading cannot resolve keeps BuildProjectReferences in its wave', () => {
+  const s = solution([{ name: 'App', refs: ['Lib'] }, { name: 'Lib' }]);
+  const app = s.projects.get(s.byName('App').guid)!;
+  s.projects.set(s.byName('App').guid, { ...app, items: { ...app.items!, unresolvedReferences: true } });
+  expect(planWaves(s.sln, s.config, s.projects).skipReferences).toEqual([true, false]);
+});
+
+test('a dependency through a cycle of projects outside the build set is not lost', () => {
+  // A and D are built; X and Y are not (no Build.0) and reference each other; X needs C, Y needs B.
+  const s = solution([
+    { name: 'A', refs: ['X'] },
+    { name: 'D', refs: ['Y'] },
+    { name: 'X', build: false, refs: ['Y', 'C'] },
+    { name: 'Y', build: false, refs: ['X', 'B'] },
+    { name: 'B' },
+    { name: 'C' },
+  ]);
+  const plan = planWaves(s.sln, s.config, s.projects);
+  expect(plan.waves.map(s.names)).toEqual([['B', 'C'], ['A', 'D']]);
+  expect(s.names(plan.dependents(s.byName('C').guid))).toEqual(['A', 'D']);
+});
+
 test('a cycle builds everything in one wave and names the cycle', () => {
   const s = solution([{ name: 'A', deps: ['B'] }, { name: 'B', refs: ['C'] }, { name: 'C', deps: ['A'] }, { name: 'D' }]);
   const plan = planWaves(s.sln, s.config, s.projects);
@@ -115,5 +137,5 @@ test('a thousand projects are planned quickly', () => {
   const start = Date.now();
   const plan = planWaves(s.sln, s.config, s.projects);
   expect(plan.waves).toHaveLength(1000);
-  expect(Date.now() - start).toBeLessThan(500);
+  expect(Date.now() - start).toBeLessThan(200);
 });

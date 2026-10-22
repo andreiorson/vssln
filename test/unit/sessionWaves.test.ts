@@ -20,7 +20,7 @@ const refs: Record<string, string[]> = { Render: ['Math'], Game: ['Render', 'Aud
 function graphState(over: Partial<AppState> = {}): AppState {
   const projects = new Map<string, ProjectEntry>(engine.projects.map(p => [p.guid, p.name === 'Missing' ? { exists: false } : {
     exists: true,
-    items: { items: [], filters: [], references: (refs[p.name] ?? []).map(r => byName(r).absPath) },
+    items: { items: [], filters: [], unresolvedReferences: false, references: (refs[p.name] ?? []).map(r => byName(r).absPath) },
   }]));
   return {
     ...initialState,
@@ -45,7 +45,7 @@ function deps(store: Store, runner: BuildRunner, written: string[], files: Map<s
 }
 
 /** Each MSBuild run builds the projects of its solution filter; the named ones fail. A held run waits for release(). */
-function waveRunner(files: Map<string, string>, failing: string[] = [], holdRun?: number) {
+function waveRunner(files: Map<string, string>, failing: string[] = [], holdRun?: number, startFails = false) {
   const spawned: string[][] = [];
   let release = () => {};
   const spawn: Spawn = (_file, args) => {
@@ -53,21 +53,28 @@ function waveRunner(files: Map<string, string>, failing: string[] = [], holdRun?
     const run = spawned.length;
     let lineCb: (l: string) => void = () => {};
     let exitCb: (c: number | null) => void = () => {};
+    let errorCb: (m: string) => void = () => {};
     const play = () => {
+      if (startFails) {
+        errorCb('spawn C:\VS\MSBuild.exe ENOENT');
+        exitCb(null);
+        return;
+      }
       let failed = false;
+      const targets = args.includes('-t:Rebuild') ? 'Rebuild target(s)' : 'default targets';
       const filter = files.get(args[0]);
       const rels: string[] = filter ? JSON.parse(filter).solution.projects : [];
       rels.forEach((rel, i) => {
         const p = engine.projects.find(x => x.relPath === rel)!;
         const id = i + 2;
-        lineCb(`     1>Project "${args[0]}" (1) is building "${p.absPath}" (${id}) on node 1 (default targets).`);
+        lineCb(`     1>Project "${args[0]}" (1) is building "${p.absPath}" (${id}) on node 1 (${targets}).`);
         lineCb(`         ${p.name.toLowerCase()}.cpp`);
         if (failing.includes(p.name)) {
           failed = true;
           lineCb(`     ${id}>${path.win32.dirname(p.absPath)}\\x.cpp(1,1): error C1189: #error: boom [${p.absPath}]`);
-          lineCb(`     ${id}>Done Building Project "${p.absPath}" (default targets) -- FAILED.`);
+          lineCb(`     ${id}>Done Building Project "${p.absPath}" (${targets}) -- FAILED.`);
         } else {
-          lineCb(`     ${id}>Done Building Project "${p.absPath}" (default targets).`);
+          lineCb(`     ${id}>Done Building Project "${p.absPath}" (${targets}).`);
         }
       });
       lineCb('');
@@ -78,7 +85,7 @@ function waveRunner(files: Map<string, string>, failing: string[] = [], holdRun?
     };
     if (run === holdRun) release = play;
     else setImmediate(play);
-    return { pid: run, onLine: cb => (lineCb = cb), onError: () => {}, onExit: cb => (exitCb = cb) };
+    return { pid: run, onLine: cb => (lineCb = cb), onError: cb => (errorCb = cb), onExit: cb => (exitCb = cb) };
   };
   return { runner: new BuildRunner(spawn, async () => release()), spawned, release: () => release() };
 }
@@ -157,16 +164,18 @@ test('Stop during a wave starts no later wave', async () => {
   expect(store.state.build.status).toBe('cancelled');
 });
 
-test('Rebuild cleans everything once, then builds in waves; Clean is one run', async () => {
+test('Rebuild rebuilds each wave (no Clean of everything first, which fails like the build); Clean is one run', async () => {
   const store = new Store();
   store.set(graphState());
   const files = new Map<string, string>();
   const { runner, spawned } = waveRunner(files);
-  await runBuild(deps(store, runner, [], files), { action: 'Rebuild' });
-  expect(spawned[0][0]).toBe(engine.path);
-  expect(spawned[0]).toContain('-t:Clean');
-  expect(spawned.slice(1).map(a => a[0])).toEqual(['C:\\logs\\wave-1.slnf', 'C:\\logs\\wave-2.slnf', 'C:\\logs\\wave-3.slnf']);
+  const written: string[] = [];
+  await runBuild(deps(store, runner, written, files), { action: 'Rebuild' });
+  expect(spawned.map(a => a[0])).toEqual(['C:\\logs\\wave-1.slnf', 'C:\\logs\\wave-2.slnf', 'C:\\logs\\wave-3.slnf']);
+  expect(spawned.every(a => a.includes('-t:Rebuild'))).toBe(true);
+  expect(appends(spawned[0])).toBe(false);
   expect(appends(spawned[1])).toBe(true);
+  expect(written).toContainEqual(expect.stringMatching(/^\d+>------ Rebuild All started: Project: /));
   expect(store.state.build.status).toBe('succeeded');
 
   const clean = waveRunner(files);
@@ -193,4 +202,52 @@ test('a dependency cycle builds the solution in one run and says why', async () 
   await runBuild(deps(store, runner, written, files), { action: 'Build' });
   expect(spawned.map(a => [a[0], a[1]])).toEqual([[engine.path, '-t:Build']]);
   expect(written).toContainEqual('The project dependencies form a cycle (Render → Shaders → Render); building the solution in one run.');
+});
+
+test('Stop between two runs, while no MSBuild runs, starts no later wave', async () => {
+  const store = new Store();
+  store.set(graphState());
+  const files = new Map<string, string>();
+  const { runner, spawned } = waveRunner(files);
+  const d = deps(store, runner, [], files);
+  d.writeFile = async (p, text) => {
+    files.set(p, text);
+    if (p.endsWith('wave-2.slnf')) await runner.stop();
+  };
+  await runBuild(d, { action: 'Build' });
+  expect(spawned).toHaveLength(1);
+  expect(store.state.build.status).toBe('cancelled');
+});
+
+test('MSBuild that cannot start ends the build at once', async () => {
+  const store = new Store();
+  store.set(graphState());
+  const files = new Map<string, string>();
+  const { runner, spawned } = waveRunner(files, [], undefined, true);
+  const written: string[] = [];
+  await runBuild(deps(store, runner, written, files), { action: 'Build' });
+  expect(spawned).toHaveLength(1);
+  expect(written.some(l => l.startsWith('Not built because'))).toBe(false);
+  expect(written).toContainEqual(expect.stringMatching(/^MSBuild could not start: /));
+  expect(store.state.build.status).toBe('failed');
+});
+
+test('MSBuild older than 16.7 has no solution filters: one run, and the output says why', async () => {
+  const store = new Store();
+  store.set(graphState({ toolchain: { ...VS, installationVersion: '16.4.31' } }));
+  const files = new Map<string, string>();
+  const { runner, spawned } = waveRunner(files);
+  const written: string[] = [];
+  await runBuild(deps(store, runner, written, files), { action: 'Build' });
+  expect(spawned.map(a => a[0])).toEqual([engine.path]);
+  expect(written).toContain('Building the solution in one run: building in waves needs MSBuild 16.7 or newer (Visual Studio 2019 16.7).');
+});
+
+test('build.waves: false in the settings builds in one run', async () => {
+  const store = new Store();
+  store.set(graphState({ settings: { build: { waves: false } } }));
+  const files = new Map<string, string>();
+  const { runner, spawned } = waveRunner(files);
+  await runBuild(deps(store, runner, [], files), { action: 'Build' });
+  expect(spawned.map(a => a[0])).toEqual([engine.path]);
 });

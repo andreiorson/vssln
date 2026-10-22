@@ -71,8 +71,10 @@ test('project references are read as resolved paths and are not files', () => {
     <ProjectReference Include="$(Unknown)\\X.vcxproj" />
   </ItemGroup>`), undefined, ctx);
   expect(r.references).toEqual(['C:\\s\\Core\\Core.vcxproj', 'C:\\s\\Deps\\Conan.vcxproj']);
+  // $(Unknown) needs MSBuild: the project has references this reading cannot see.
+  expect(r.unresolvedReferences).toBe(true);
   expect(r.items.map(i => i.include)).toEqual(['a.cpp']);
-  expect(parseProjectItems(project(''), undefined, ctx).references).toEqual([]);
+  expect(parseProjectItems(project(''), undefined, ctx)).toMatchObject({ references: [], unresolvedReferences: false });
 });
 
 test('commented-out items and filters are not read', () => {

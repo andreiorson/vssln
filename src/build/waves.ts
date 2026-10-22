@@ -62,43 +62,33 @@ export function planWaves(sln: ParsedSolution, config: SolutionConfig, projects:
     members = new Set(sln.projects.filter(buildable).map(p => key(p.guid)));
   }
 
-  // Dependencies among the members; a project outside the set passes its own dependencies on.
-  const through = new Map<string, Set<string>>();
-  const passOn = (k: string, visiting: Set<string>): Set<string> => {
-    const known = through.get(k);
-    if (known) return known;
-    const result = new Set<string>();
-    if (visiting.has(k)) return result;
-    visiting.add(k);
-    for (const d of direct.get(k) ?? []) {
-      if (members.has(d)) result.add(d);
-      else for (const x of passOn(d, visiting)) result.add(x);
-    }
-    visiting.delete(k);
-    through.set(k, result);
-    return result;
-  };
+  // Dependencies among the members; a project outside the set passes its own dependencies on. A walk per member
+  // through the projects outside the set only (it stops at members), so a cycle among those cannot hide an edge.
   const deps = new Map<string, Set<string>>();
   for (const k of members) {
     const set = new Set<string>();
-    for (const d of direct.get(k) ?? []) {
+    const seen = new Set<string>([k]);
+    const stack = [...(direct.get(k) ?? [])];
+    while (stack.length > 0) {
+      const d = stack.pop()!;
+      if (seen.has(d)) continue;
+      seen.add(d);
       if (members.has(d)) set.add(d);
-      else for (const x of passOn(d, new Set([k]))) set.add(x);
+      else stack.push(...(direct.get(d) ?? []));
     }
-    set.delete(k);
     deps.set(k, set);
   }
+  const dependentsOf = new Map<string, string[]>();
+  for (const [k, ds] of deps) for (const d of ds) dependentsOf.set(d, [...(dependentsOf.get(d) ?? []), k]);
   const ordered = sln.projects.filter(p => members.has(key(p.guid)));
   const dependents = (guid: string): string[] => {
     const found = new Set<string>();
     const queue = [key(guid)];
     while (queue.length > 0) {
-      const k = queue.shift()!;
-      for (const [m, ds] of deps) {
-        if (ds.has(k) && !found.has(m)) {
-          found.add(m);
-          queue.push(m);
-        }
+      for (const m of dependentsOf.get(queue.shift()!) ?? []) {
+        if (found.has(m)) continue;
+        found.add(m);
+        queue.push(m);
       }
     }
     return ordered.filter(p => found.has(key(p.guid))).map(p => p.guid);
@@ -107,20 +97,33 @@ export function planWaves(sln: ParsedSolution, config: SolutionConfig, projects:
   // Kahn's algorithm, one level per wave.
   const waveOf = new Map<string, number>();
   const waves: string[][] = [];
-  let remaining = ordered;
-  while (remaining.length > 0) {
-    const ready = remaining.filter(p => [...deps.get(key(p.guid))!].every(d => waveOf.has(d)));
-    if (ready.length === 0) break;
-    for (const p of ready) waveOf.set(key(p.guid), waves.length);
-    waves.push(ready.map(p => p.guid));
-    remaining = remaining.filter(p => !waveOf.has(key(p.guid)));
+  const position = new Map(ordered.map((p, i) => [key(p.guid), i]));
+  const waiting = new Map([...deps].map(([k, ds]) => [k, ds.size]));
+  let ready = ordered.filter(p => waiting.get(key(p.guid)) === 0).map(p => key(p.guid));
+  while (ready.length > 0) {
+    ready.sort((a, b) => position.get(a)! - position.get(b)!);
+    for (const k of ready) waveOf.set(k, waves.length);
+    waves.push(ready.map(k => byKey.get(k)!.guid));
+    const next: string[] = [];
+    for (const k of ready) {
+      for (const m of dependentsOf.get(k) ?? []) {
+        const left = waiting.get(m)! - 1;
+        waiting.set(m, left);
+        if (left === 0) next.push(m);
+      }
+    }
+    ready = next;
   }
+  const remaining = ordered.filter(p => !waveOf.has(key(p.guid)));
   if (remaining.length > 0) {
     return { waves: [ordered.map(p => p.guid)], skipReferences: [false], cycle: findCycle(remaining.map(p => key(p.guid)), deps, byKey), dependents };
   }
 
   // Only C++ projects have their references read; any other project may reference something MSBuild must build.
-  const knowsReferences = (p: SlnProject) => p.kind === 'vcxproj' && projects.get(p.guid)?.items !== undefined;
+  const knowsReferences = (p: SlnProject) => {
+    const items = projects.get(p.guid)?.items;
+    return p.kind === 'vcxproj' && items !== undefined && !items.unresolvedReferences;
+  };
   const skipReferences = waves.map((wave, n) =>
     wave.every(guid =>
       knowsReferences(byKey.get(key(guid))!) &&

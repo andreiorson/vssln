@@ -60,6 +60,13 @@ test('new selection keys go after the existing ones', () => {
   expect(out.indexOf('"configuration"')).toBeLessThan(out.indexOf('"environment"'));
 });
 
+test('build.waves is read as a boolean', () => {
+  expect(parseSettings('{ "build": { "waves": false } }').settings.build).toEqual({ waves: false });
+  const wrong = parseSettings('{ "build": { "waves": "no" } }');
+  expect(wrong.settings.build?.waves).toBeUndefined();
+  expect(wrong.problems.join()).toContain('build.waves');
+});
+
 test('selection edit on empty text creates an object', () => {
   expect(JSON.parse(applySelectionEdit('', 'solution', 'src/A.sln'))).toEqual({ solution: 'src/A.sln' });
 });

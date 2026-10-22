@@ -40,7 +40,7 @@ suite('build samples/Engine', () => {
   test('a project that imports what another project produces builds from a clean state, in waves', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
-    // Platform imports outgenerateddeps.props, which only building Deps (listed last in the .sln) writes.
+    // Platform imports out\generated\deps.props, which only building Deps (listed last in the .sln) writes.
     await (await startBuild(a, 'Clean')).done;
     fs.rmSync(path.join(folder, 'out', 'generated', 'deps.props'), { force: true });
     await (await startBuild(a, 'Build')).done;

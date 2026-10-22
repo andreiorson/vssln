@@ -14,6 +14,8 @@ export interface ProjectItems {
   filters: string[];
   /** Absolute paths of the projects this one references (ProjectReference), once each; unevaluated ones are left out. */
   references: string[];
+  /** A ProjectReference needed MSBuild to be resolved (an unknown macro): the project has references not listed. */
+  unresolvedReferences: boolean;
 }
 
 export interface ItemContext {
@@ -119,10 +121,12 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
   const items: ProjectItem[] = [];
   const byKey = new Map<string, ProjectItem>();
   const references: string[] = [];
+  let unresolvedReferences = false;
   for (const { itemType, include } of includes(vcxproj)) {
     if (itemType.toLowerCase() === 'projectreference') {
       const resolved = evaluate(include, ctx, known);
-      if (resolved && !references.some(r => r.toLowerCase() === resolved.toLowerCase())) references.push(resolved);
+      if (!resolved) unresolvedReferences = true;
+      else if (!references.some(r => r.toLowerCase() === resolved.toLowerCase())) references.push(resolved);
       continue;
     }
     if (NOT_FILES.has(itemType.toLowerCase())) continue;
@@ -154,5 +158,5 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
       addFilter(item.filter);
     }
   }
-  return { items, filters: filterPaths, references };
+  return { items, filters: filterPaths, references, unresolvedReferences };
 }

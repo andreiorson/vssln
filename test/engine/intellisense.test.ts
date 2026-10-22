@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { VsslnApi } from '../../src/extension';
-import { api, waitFor } from './helpers';
+import { api, guidOf, waitFor } from './helpers';
 
 /** The 11 C++ projects of Release|x64 that exist on disk (Missing is skipped). */
 const PROJECTS = 11;
@@ -16,10 +16,17 @@ suite('IntelliSense on samples/Engine', () => {
   const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
   const file = (...p: string[]) => path.join(folder, ...p);
 
-  test('every C++ project of Release|x64 gets its data', async function () {
+  test('every C++ project of Release|x64 gets its data, Platform once Deps wrote the sheet it imports', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
     await settled(a);
+    // On a fresh checkout Platform cannot be read until building Deps writes out\generated\deps.props; the new
+    // sheet makes IntelliSense try Platform again.
+    if (a.getState().intellisense.projects.get(guidOf(a, 'Platform'))?.status === 'failed') {
+      await a.builds.run('Build', 'Deps');
+      await waitFor(() => a.getState().intellisense.projects.get(guidOf(a, 'Platform'))?.status === 'ready', 120000);
+      await settled(a);
+    }
     const projects = [...a.getState().intellisense.projects.values()];
     assert.strictEqual(projects.length, PROJECTS);
     assert.deepStrictEqual(projects.filter(p => p.status !== 'ready'), []);

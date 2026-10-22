@@ -31,8 +31,19 @@ export function lineSplitter(onLine: (line: string) => void): { push(chunk: stri
 export class BuildRunner {
   private current?: { pid?: number; cancelled: boolean };
   private idle: Promise<void> = Promise.resolve();
+  private stopRequested = false;
 
   constructor(private readonly spawn: Spawn, private readonly kill: KillTree) {}
+
+  /** A new build begins: a Stop of an earlier one no longer applies. */
+  begin(): void {
+    this.stopRequested = false;
+  }
+
+  /** Stop was asked since begin(), also between two runs of a build in waves, when no process runs. */
+  get stopped(): boolean {
+    return this.stopRequested;
+  }
 
   get running(): boolean {
     return this.current !== undefined;
@@ -68,6 +79,7 @@ export class BuildRunner {
   }
 
   async stop(): Promise<void> {
+    this.stopRequested = true;
     const current = this.current;
     if (!current || current.pid === undefined) return;
     current.cancelled = true;
@@ -76,6 +88,7 @@ export class BuildRunner {
 
   /** For extension shutdown: a synchronous kill, so it is done before the extension host exits. */
   stopNow(): void {
+    this.stopRequested = true;
     const current = this.current;
     if (!current || current.pid === undefined) return;
     current.cancelled = true;

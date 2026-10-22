@@ -44,8 +44,9 @@ const FINISHED = /^Done Building Project "([^"]+)" \((.*?)\)( -- FAILED)?\.$/;
 // Only these targets are real work; references also call GetTargetPath and the like.
 const WORK_TARGETS = /^(default targets|(Build|Rebuild|Clean) target\(s\))$/;
 
+/** Any MSBuild project (.vcxproj, .csproj, …); the metaprojects MSBuild makes for a solution are not projects. */
 function isProject(p: string): boolean {
-  return /\.vcxproj$/i.test(p);
+  return /\.[a-z]*proj$/i.test(p) && !/\.metaproj$/i.test(p);
 }
 
 function workTarget(targets: string): WorkTarget | undefined {

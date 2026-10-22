@@ -45,7 +45,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "buildBeforeDebug": { "type": "boolean", "default": true, "description": "Build the project before starting it." }
+        "buildBeforeDebug": { "type": "boolean", "default": true, "description": "Build the project before starting it." },
+        "waves": { "type": "boolean", "default": true, "description": "Build and Rebuild in waves along the project dependencies, so a project is read only after the projects it depends on were built (needed when a project imports a file another one produces, such as conan's conandeps.props). false: one MSBuild run, with more parallel work between projects." }
       }
     },
     "msbuild": {

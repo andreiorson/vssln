@@ -21,7 +21,7 @@ export interface VsslnSettings {
   startupProject?: string;
   toolchain?: { vsVersion?: string; msbuildPath?: string | null };
   environment?: Record<string, string>;
-  build?: { buildBeforeDebug?: boolean };
+  build?: { buildBeforeDebug?: boolean; waves?: boolean };
   msbuild?: { properties?: Record<string, string>; maxParallelism?: number };
   projects?: Record<string, ProjectSettings>;
 }
@@ -151,6 +151,7 @@ function validate(root: Obj, v: Validator): VsslnSettings {
   if (build) {
     s.build = {};
     set(s.build, 'buildBeforeDebug', v.boolean(build, 'buildBeforeDebug', 'build.buildBeforeDebug'));
+    set(s.build, 'waves', v.boolean(build, 'waves', 'build.waves'));
   }
 
   const msbuild = v.object(root, 'msbuild', 'msbuild');
