@@ -27,11 +27,13 @@ function input(over: Partial<LaunchInput> = {}): LaunchInput {
   };
 }
 
-function config(over: Partial<LaunchInput> = {}) {
+function resolved(over: Partial<LaunchInput> = {}) {
   const r = resolveLaunch(input(over));
   if (!('config' in r)) throw new Error(r.problem);
-  return r.config;
+  return r;
 }
+
+const config = (over: Partial<LaunchInput> = {}) => resolved(over).config;
 
 test('MSBuild values from the project and its .vcxproj.user', () => {
   expect(config()).toEqual({
@@ -39,7 +41,8 @@ test('MSBuild values from the project and its .vcxproj.user', () => {
     request: 'launch',
     name: 'Debug Game',
     program: 'C:\\src\\Engine\\out\\x64\\Release\\Game.exe',
-    args: ['--level', 'two words', '--x=1'],
+    // The .vcxproj.user command line as written, like Visual Studio passes it.
+    args: '--level "two words" --x=1',
     cwd: 'C:\\src\\Engine\\out\\x64\\Release',
     environment: [
       { name: 'GAME_MODE', value: 'sample' },
@@ -51,6 +54,7 @@ test('MSBuild values from the project and its .vcxproj.user', () => {
     console: DEFAULT_CONSOLE,
   });
   expect(DEFAULT_CONSOLE).toBe('internalConsole');
+  expect(resolved().argv).toEqual(['--level', 'two words', '--x=1']);
 });
 
 test('run without debugging', () => {
@@ -74,7 +78,7 @@ test('settings override MSBuild, the configuration entry overrides the project e
       },
     },
   });
-  expect(c.args).toEqual(['--release']);
+  expect(c.args).toBe('--release');
   expect(c.cwd).toBe('C:\\src\\Engine\\Game\\data');
   expect(c.console).toBe('externalTerminal');
   // HOME equals the inherited value, so it is not listed; settings environment comes first, debug.env last.
@@ -96,8 +100,14 @@ test('launch.json values win over everything', () => {
     settings: { projects: { Game: { debug: { args: ['--from-settings'] } } } },
     overrides: { args: ['x'], cwd: 'C:\\w', env: { GAME_MODE: 'json' }, console: 'integratedTerminal', program: 'C:\\other.exe' },
   });
-  expect(c).toMatchObject({ args: ['x'], cwd: 'C:\\w', console: 'integratedTerminal', program: 'C:\\other.exe' });
+  expect(c).toMatchObject({ args: 'x', cwd: 'C:\\w', console: 'integratedTerminal', program: 'C:\\other.exe' });
   expect(c.environment).toContainEqual({ name: 'GAME_MODE', value: 'json' });
+});
+
+test('listed arguments become one command line that keeps empty and quoted arguments', () => {
+  const r = resolved({ overrides: { args: ['', 'a "b"', 'C:\\dir\\', 'x y'] } });
+  expect(r.config.args).toBe('"" "a \\"b\\"" C:\\dir\\ "x y"');
+  expect(r.argv).toEqual(['', 'a "b"', 'C:\\dir\\', 'x y']);
 });
 
 test('a library without a program to start is explained', () => {

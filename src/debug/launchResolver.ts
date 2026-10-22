@@ -3,7 +3,7 @@ import { expandVariables, VariableContext } from '../settings/resolver';
 import { DebugSettings, VsslnSettings } from '../settings/settings';
 import { SlnProject, SolutionConfig } from '../solution/slnParser';
 import { Env, envLookup, setVariable, withVariables } from '../util/env';
-import { applyEnvironmentLines, splitCommandLine } from './commandLine';
+import { applyEnvironmentLines, joinCommandLine, splitCommandLine } from './commandLine';
 import { DebugProperties } from './properties';
 
 /** Console programs write to the Debug Console by default, so no terminal opens per launch. */
@@ -31,7 +31,11 @@ export interface CppvsdbgConfiguration {
   request: 'launch';
   name: string;
   program: string;
-  args: string[];
+  /**
+   * One command line: cppvsdbg passes it to the program as is, while an args array loses empty arguments. The
+   * .vcxproj.user string is used verbatim, like Visual Studio does; arrays are joined with Windows quoting.
+   */
+  args: string;
   cwd: string;
   /** Only the variables that differ from the inherited environment, in the inherited spelling of their names. */
   environment: { name: string; value: string }[];
@@ -39,7 +43,8 @@ export interface CppvsdbgConfiguration {
   noDebug?: boolean;
 }
 
-export type LaunchResult = { config: CppvsdbgConfiguration } | { problem: string; action?: 'openSettings' };
+/** `argv` is what the program receives, for launches that start it themselves (Run without debugging). */
+export type LaunchResult = { config: CppvsdbgConfiguration; argv: string[] } | { problem: string; action?: 'openSettings' };
 
 function find<T>(record: Record<string, T> | undefined, name: string): T | undefined {
   if (!record) return undefined;
@@ -101,16 +106,20 @@ export function resolveLaunch(input: LaunchInput): LaunchResult {
     .filter(([name, value]) => envLookup(env, name) !== value)
     .map(([name, value]) => ({ name: Object.keys(env).find(k => k.toLowerCase() === name.toLowerCase()) ?? name, value }));
 
+  const listed = overrides.args ?? debug.args?.map(expand);
+  const argv = listed ?? splitCommandLine(props.arguments);
+  const commandLine = listed ? joinCommandLine(listed) : props.arguments;
+
   const launch: CppvsdbgConfiguration = {
     type: 'cppvsdbg',
     request: 'launch',
     name: `${input.noDebug ? 'Run' : 'Debug'} ${project.name}`,
     program,
-    args: overrides.args ?? debug.args?.map(expand) ?? splitCommandLine(props.arguments),
+    args: commandLine,
     cwd: fromOverrides(overrides.cwd) ?? fromSettings(debug.cwd) ?? fromMsbuild(props.workingDirectory) ?? fromMsbuild(props.projectDir) ?? input.workspaceFolder,
     environment,
     console: given(overrides.console) ?? debug.console ?? DEFAULT_CONSOLE,
     ...(input.noDebug ? { noDebug: true } : {}),
   };
-  return { config: launch };
+  return { config: launch, argv };
 }

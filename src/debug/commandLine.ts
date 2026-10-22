@@ -57,6 +57,34 @@ export function splitCommandLine(line: string): string[] {
 }
 
 /**
+ * Joins arguments into one command line that splitCommandLine (and the MSVC runtime) reads back unchanged: an argument
+ * is quoted when it is empty or has whitespace or quotes; inside quotes, backslashes before a quote or the closing
+ * quote are doubled and quotes are escaped.
+ */
+export function joinCommandLine(args: string[]): string {
+  return args
+    .map(arg => {
+      if (arg !== '' && !/[\s"]/.test(arg)) return arg;
+      let out = '"';
+      let backslashes = 0;
+      for (const c of arg) {
+        if (c === '\\') {
+          backslashes++;
+          continue;
+        }
+        if (c === '"') {
+          out += '\\'.repeat(backslashes * 2 + 1) + '"';
+        } else {
+          out += '\\'.repeat(backslashes) + c;
+        }
+        backslashes = 0;
+      }
+      return `${out}${'\\'.repeat(backslashes * 2)}"`;
+    })
+    .join(' ');
+}
+
+/**
  * Expands %NAME% like Windows' ExpandEnvironmentStrings, which Visual Studio uses for the debugger environment:
  * names may contain spaces, and when a name is unknown its closing % is kept to open the next reference.
  */

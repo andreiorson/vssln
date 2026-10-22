@@ -197,7 +197,7 @@ export function registerCommands(store: Store, controller: Controller, log: vsco
       if (node?.project) await controller.writeSelection('startupProject', node.project.name);
     }),
 
-    register('vssln.openSettings', () => controller.openSettings()),
+    register('vssln.openSettings', (key?: unknown) => controller.openSettings(typeof key === 'string' ? key : undefined)),
     register('vssln.configureToolchain', () => controller.openSettings('toolchain')),
     register('vssln.refresh', () => controller.reload(true)),
     register('vssln.showLog', () => log.show()),

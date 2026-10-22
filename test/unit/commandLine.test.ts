@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applyEnvironmentLines, expandPercent, splitCommandLine } from '../../src/debug/commandLine';
+import { applyEnvironmentLines, expandPercent, joinCommandLine, splitCommandLine } from '../../src/debug/commandLine';
 
 test('whitespace separates arguments', () => {
   expect(splitCommandLine('  --a   b\tc ')).toEqual(['--a', 'b', 'c']);
@@ -34,6 +34,14 @@ test('a doubled quote inside quotes is a literal quote', () => {
 
 test('a doubled quote inside quotes stays in quotes (MSVC runtime since 2008, not CommandLineToArgvW)', () => {
   expect(splitCommandLine('"a""b c"')).toEqual(['a"b c']);
+});
+
+test('joining quotes only what needs it and round-trips through splitting', () => {
+  expect(joinCommandLine(['--fast', 'x'])).toBe('--fast x');
+  expect(joinCommandLine(['', 'a "b"', 'C:\\dir\\', 'x y', 'C:\\dir with space\\'])).toBe('"" "a \\"b\\"" C:\\dir\\ "x y" "C:\\dir with space\\\\"');
+  for (const args of [['', 'a "b"', 'C:\\dir\\', 'x y'], ['tab\there', 'q\\"', '\\\\server\\share\\'], []]) {
+    expect(splitCommandLine(joinCommandLine(args))).toEqual(args);
+  }
 });
 
 test('%VAR% follows ExpandEnvironmentStrings: an unknown name leaves its closing % to open the next one', () => {

@@ -17,18 +17,15 @@ int main(int argc, char** argv) {
         if (!line.empty()) ++count;
     }
 
-    std::string args;
-    for (int i = 1; i < argc; ++i) {
-        if (i > 1) args += ' ';
-        args += argv[i];
-    }
     char* mode = nullptr;
     size_t length = 0;
     _dupenv_s(&mode, &length, "COOK_MODE");
 
+    // One line per argument, so tests see argument boundaries, empty arguments and quotes.
     std::ofstream out("cooked.txt");
     out << "assets=" << count << "\n";
-    out << "args=" << args << "\n";
+    out << "argc=" << argc - 1 << "\n";
+    for (int i = 1; i < argc; ++i) out << "arg[" << i << "]=" << argv[i] << "\n";
     out << "COOK_MODE=" << (mode ? mode : "(unset)") << "\n";
     std::free(mode);
 

@@ -19,7 +19,7 @@ export interface VsslnApi {
   /** Builds without the confirmation dialogs, for tests and other extensions. */
   builds: Pick<Builds, 'run' | 'stop'>;
   /** Launch configurations without building or starting, for tests and other extensions. */
-  debugging: Pick<Debugging, 'resolve' | 'launch'>;
+  debugging: Pick<Debugging, 'resolve' | 'launch' | 'evaluate'>;
 }
 
 export function activate(context: vscode.ExtensionContext): VsslnApi {
