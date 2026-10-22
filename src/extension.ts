@@ -5,6 +5,7 @@ import { BuildTasks, registerBuildCommands } from './ui/buildTasks';
 import { debounce } from './ui/coalesce';
 import { Controller, registerCommands } from './ui/commands';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
+import { registerProjectsFilter } from './ui/projectsFilter';
 import { ProjectsView } from './ui/projectsView';
 import { StatusBar } from './ui/statusBar';
 import { StatusView } from './ui/statusView';
@@ -26,6 +27,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
   const decorations = new ProjectDecorations(store);
+  const projectsTree = vscode.window.createTreeView('vssln.projects', { treeDataProvider: projectsView, showCollapseAll: true });
   const reload = debounce(() => void controller.reload(), 300);
 
   // Project files matter too: a created Missing project or added sources change the tree.
@@ -59,7 +61,8 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     decorations,
     new StatusBar(store),
     vscode.window.createTreeView('vssln.status', { treeDataProvider: statusView }),
-    vscode.window.createTreeView('vssln.projects', { treeDataProvider: projectsView, showCollapseAll: true }),
+    projectsTree,
+    ...registerProjectsFilter(projectsView, projectsTree),
     vscode.window.registerFileDecorationProvider(decorations),
     ...watchers,
     { dispose: () => reload.cancel() },

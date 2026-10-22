@@ -158,6 +158,18 @@
         "command": "vssln.showBuildOutput",
         "title": "Show build output",
         "category": "VS Solution"
+      },
+      {
+        "command": "vssln.filterProjects",
+        "title": "Filter projects",
+        "icon": "$(filter)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.clearProjectsFilter",
+        "title": "Clear projects filter",
+        "icon": "$(close)",
+        "category": "VS Solution"
       }
     ],
     "menus": {
@@ -196,6 +208,16 @@
           "command": "vssln.showLog",
           "when": "view == vssln.status",
           "group": "1_vssln@3"
+        },
+        {
+          "command": "vssln.filterProjects",
+          "when": "view == vssln.projects",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vssln.clearProjectsFilter",
+          "when": "view == vssln.projects && vssln.filtered",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
@@ -288,6 +310,10 @@
         {
           "command": "vssln.cleanProject",
           "when": "false"
+        },
+        {
+          "command": "vssln.clearProjectsFilter",
+          "when": "vssln.filtered"
         }
       ]
     },
@@ -328,6 +354,13 @@
           "code": 3,
           "message": 4
         }
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "vssln.filterProjects",
+        "key": "ctrl+alt+f",
+        "when": "focusedView == vssln.projects"
       }
     ]
   },

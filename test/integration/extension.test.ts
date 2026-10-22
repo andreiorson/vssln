@@ -77,6 +77,29 @@ suite('activation', () => {
     assert.deepStrictEqual(statusLabels, ['Sample.sln', 'Release | x64', 'Game']);
   });
 
+  test('the live filter shows matching projects with their folders expanded', async () => {
+    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    await waitFor(() => api.getState().phase === 'ready', 10000);
+    const view = api.views.projects;
+    try {
+      view.setFilter('gra ren');
+      const [core] = view.getChildren();
+      assert.deepStrictEqual(view.getChildren().map(n => n.label), ['Core']);
+      assert.strictEqual(view.getTreeItem(core).collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
+      const [graphics] = view.getChildren(core);
+      assert.deepStrictEqual(view.getChildren(graphics).map(n => n.label), ['Render']);
+      assert.strictEqual(view.filterSummary(), 'filter: gra ren · 1 of 6');
+
+      view.setFilter('xyz');
+      assert.deepStrictEqual(view.getChildren(), []);
+      assert.strictEqual(view.emptyMessage(), 'No projects match "xyz".');
+    } finally {
+      view.setFilter('');
+    }
+    assert.deepStrictEqual(view.getChildren().map(n => n.label), ['Core', 'Tools', 'Docs', 'Game', 'Missing']);
+    assert.strictEqual(view.filterSummary(), undefined);
+  });
+
   test('creating a missing project file updates the tree without a manual reload', async () => {
     const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
     const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;

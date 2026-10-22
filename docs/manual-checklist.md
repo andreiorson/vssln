@@ -13,6 +13,12 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Typing in the Projects view filters by name; Collapse all works.
 - [ ] Context menu of a project: Set as startup project, Open project file, Reveal in File Explorer, Copy path; a folder has no such entries.
 
+## Projects filter
+
+- [ ] The funnel button in the Projects title (or `Ctrl+Alt+F` with the tree focused) opens an input; typing `gra ren` leaves `Core › Graphics › Render` with the folders open, the view title shows `filter: gra ren · 1 of 12`.
+- [ ] A folder name (`tools`) keeps every project inside it; `xyz` shows `No projects match "xyz".`.
+- [ ] Enter keeps the filter, Escape brings the previous one back, the ✕ button clears it; the full tree comes back with its earlier expansion state.
+
 ## Selection and settings file
 
 - [ ] Pick `Debug | x64` in the configuration picker: `.vscode/vssln.json` is created with `"configuration": "Debug|x64"`, and `Legacy` stays greyed out.
