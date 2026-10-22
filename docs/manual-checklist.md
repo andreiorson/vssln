@@ -49,6 +49,17 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Problems: an error points at its line (C1189 at `vector.cpp` line 4); a warning repeated by many files appears once; a successful build clears the previous errors; switching the configuration clears them too.
 - [ ] Edit `vssln.json` without saving (for example the `environment`), then Build: the build uses the edit.
 
+## Run and debug
+
+- [ ] The Status title shows Debug and Run buttons next to Build, Rebuild and Clean; they hide during a build and while debugging.
+- [ ] F5 builds and debugs the startup project (Game): a breakpoint in `Game/main.cpp` is hit; the Debug Console shows `args: --windowed` and `GAME_MODE: sample` from `Game.vcxproj.user` (Release|x64). F5 in the session continues.
+- [ ] Ctrl+F5 runs without debugging; no terminal is created, the output is in the Debug Console.
+- [ ] Hover AssetCooker: the bug icon debugs it; its context menu has Debug and Run project.
+- [ ] With `"projects": { "AssetCooker": { "debug": { "args": ["--fast"], "env": { "COOK_MODE": "manual" }, "cwd": "${projectDir}" } } }`, Run AssetCooker: `Tools/AssetCooker/cooked.txt` shows `args=--fast` and `COOK_MODE=manual`.
+- [ ] Debug project on Audio (a dll): a message asks to set `program` for it, with Open settings.
+- [ ] Break the build (`CL=/DENGINE_BREAK_BUILD`), F5: the build fails, Problems opens, the debugger does not start.
+- [ ] A `launch.json` entry `{ "type": "vssln", "request": "launch", "name": "Game", "project": "Game", "args": ["x"] }` starts Game with `args: x`.
+
 ## Toolchain
 
 - [ ] With Visual Studio installed and no `toolchain` settings: no error row; the log (Show log) names the Visual Studio instance.

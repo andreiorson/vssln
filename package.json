@@ -15,7 +15,8 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "workspaceContains:**/*.sln"
+    "workspaceContains:**/*.sln",
+    "onDebugResolve:vssln"
   ],
   "contributes": {
     "viewsContainers": {
@@ -170,6 +171,45 @@
         "title": "Clear projects filter",
         "icon": "$(close)",
         "category": "VS Solution"
+      },
+      {
+        "command": "vssln.debug",
+        "title": "Debug startup project",
+        "icon": "$(debug-alt)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.run",
+        "title": "Run startup project without debugging",
+        "icon": "$(run)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.debugProject",
+        "title": "Debug project",
+        "icon": "$(debug-alt)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.runProject",
+        "title": "Run project without debugging",
+        "icon": "$(run)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.startupProject",
+        "title": "Startup project name",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.configuration",
+        "title": "Solution configuration name",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.targetPath",
+        "title": "Startup project program path",
+        "category": "VS Solution"
       }
     ],
     "menus": {
@@ -218,6 +258,16 @@
           "command": "vssln.clearProjectsFilter",
           "when": "view == vssln.projects && vssln.filtered",
           "group": "navigation@2"
+        },
+        {
+          "command": "vssln.debug",
+          "when": "view == vssln.status && vssln.phase == ready && !vssln.building && !inDebugMode",
+          "group": "navigation@4"
+        },
+        {
+          "command": "vssln.run",
+          "when": "view == vssln.status && vssln.phase == ready && !vssln.building && !inDebugMode",
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [
@@ -280,6 +330,21 @@
           "command": "vssln.cleanProject",
           "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/ && !vssln.building",
           "group": "0_build@3"
+        },
+        {
+          "command": "vssln.debugProject",
+          "when": "view == vssln.projects && viewItem == project.app && !vssln.building",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.debugProject",
+          "when": "view == vssln.projects && viewItem == project.app && !vssln.building",
+          "group": "0_debug@1"
+        },
+        {
+          "command": "vssln.runProject",
+          "when": "view == vssln.projects && viewItem == project.app && !vssln.building",
+          "group": "0_debug@2"
         }
       ],
       "commandPalette": [
@@ -314,6 +379,26 @@
         {
           "command": "vssln.clearProjectsFilter",
           "when": "vssln.filtered"
+        },
+        {
+          "command": "vssln.debugProject",
+          "when": "false"
+        },
+        {
+          "command": "vssln.runProject",
+          "when": "false"
+        },
+        {
+          "command": "vssln.startupProject",
+          "when": "false"
+        },
+        {
+          "command": "vssln.configuration",
+          "when": "false"
+        },
+        {
+          "command": "vssln.targetPath",
+          "when": "false"
         }
       ]
     },
@@ -327,6 +412,16 @@
         "command": "vssln.build",
         "key": "ctrl+shift+b",
         "when": "vssln.phase == ready"
+      },
+      {
+        "command": "vssln.debug",
+        "key": "f5",
+        "when": "vssln.phase == ready && !inDebugMode"
+      },
+      {
+        "command": "vssln.run",
+        "key": "ctrl+f5",
+        "when": "vssln.phase == ready && !inDebugMode"
       }
     ],
     "languages": [
@@ -342,6 +437,72 @@
         "language": "vssln-build-output",
         "scopeName": "source.vssln-build",
         "path": "./syntaxes/vssln-build.tmLanguage.json"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "vssln",
+        "label": "VS Solution",
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "project": {
+                "type": "string",
+                "description": "Project name as in the .sln; the startup project when omitted."
+              },
+              "program": {
+                "type": "string",
+                "description": "Program to start instead of the project's own."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Command line arguments."
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Working directory."
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Environment variables."
+              },
+              "console": {
+                "enum": [
+                  "internalConsole",
+                  "integratedTerminal",
+                  "externalTerminal",
+                  "newExternalWindow"
+                ],
+                "description": "Where the program's console goes."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "vssln",
+            "request": "launch",
+            "name": "Debug startup project"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "VS Solution: Debug a project",
+            "description": "Build a project of the solution and debug it with its MSBuild launch settings.",
+            "body": {
+              "type": "vssln",
+              "request": "launch",
+              "name": "Debug ${1:Project}",
+              "project": "${1:Project}"
+            }
+          }
+        ]
       }
     ]
   },
@@ -366,5 +527,8 @@
     "esbuild": "^0.25.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"
-  }
+  },
+  "extensionDependencies": [
+    "ms-vscode.cpptools"
+  ]
 }

@@ -170,7 +170,7 @@ Triggered by `F5`, the Debug and Run buttons, or the project context menu.
    - `cwd`: `LocalDebuggerWorkingDirectory`, falling back to `ProjectDir`;
    - `env`: `LocalDebuggerEnvironment` (parsed, honouring its merge flag) merged over `environment`.
    Then overrides from `projects.<name>.debug` and its `byConfiguration` entry are applied, and variables are expanded.
-3. Start a `cppvsdbg` session with `program`, `args`, `cwd`, `environment`, `console`. Run without debugging uses the same configuration with `noDebug: true`.
+3. Start a `cppvsdbg` session with `program`, `args`, `cwd`, `environment`, `console` (default `internalConsole`, the Debug Console, so no terminal opens per launch). Run without debugging uses the same configuration with `noDebug: true`. F5 / Ctrl+F5 debug / run the startup project while a solution is loaded and no session runs (`-vssln.debug` in keybindings.json turns this off). The launch properties come from a small targets file (`resources/vssln-debug.targets`) hooked in through `CustomAfterMicrosoftCommonTargets`, which also works with VS 2019. `%VAR%` in `LocalDebuggerEnvironment` is expanded like Visual Studio does; `LocalDebuggerMergeEnvironment=false` cannot be reproduced (cppvsdbg only adds variables).
 
 A user may still write a `launch.json` entry with `"type": "vssln", "project": "Game"` (other fields optional); the provider's resolver fills in the rest. Build before launch goes through the same build path as the panel (`Builds.run`); there are no VS Code tasks to use as `preLaunchTask` (they were removed with the move to the Output channel).
 

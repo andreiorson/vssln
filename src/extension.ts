@@ -3,6 +3,7 @@ import { ChildrenRegistry } from './solution/model';
 import { AppState, Store } from './state/store';
 import { Builds, registerBuildCommands } from './ui/builds';
 import { debounce } from './ui/coalesce';
+import { Debugging, registerDebugging } from './ui/debugging';
 import { Controller, registerCommands } from './ui/commands';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
 import { registerProjectsFilter } from './ui/projectsFilter';
@@ -17,6 +18,8 @@ export interface VsslnApi {
   views: { status: StatusView; projects: ProjectsView; decorations: ProjectDecorations };
   /** Builds without the confirmation dialogs, for tests and other extensions. */
   builds: Pick<Builds, 'run' | 'stop'>;
+  /** Launch configurations without building or starting, for tests and other extensions. */
+  debugging: Pick<Debugging, 'resolve' | 'launch'>;
 }
 
 export function activate(context: vscode.ExtensionContext): VsslnApi {
@@ -25,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const registry = new ChildrenRegistry();
   const controller = new Controller(store, log);
   const builds = new Builds(store, context.logUri.fsPath, log, () => controller.reload());
+  const debugging = new Debugging(store, builds, context.asAbsolutePath('resources/vssln-debug.targets'), log);
 
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
@@ -74,12 +78,13 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     controller,
     ...registerCommands(store, controller, log),
     ...registerBuildCommands(builds),
+    ...registerDebugging(debugging, store),
   );
 
   void controller.reload();
   log.info(`Activated; project decorations use the ${PROJECT_SCHEME} scheme.`);
 
-  return { getState: () => store.state, views: { status: statusView, projects: projectsView, decorations }, builds };
+  return { getState: () => store.state, views: { status: statusView, projects: projectsView, decorations }, builds, debugging };
 }
 
 export function deactivate(): void {}

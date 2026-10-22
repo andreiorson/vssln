@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { EnvExec } from '../debug/properties';
 import { SettingsFs } from '../settings/settingsFile';
 import { LoaderDeps } from '../state/loader';
 import { Exec, findToolchain, ToolchainOptions, ToolchainResult } from '../toolchain/vswhere';
@@ -13,6 +14,18 @@ export const exec: Exec = (file, args) =>
   new Promise((resolve, reject) => {
     // A hung vswhere (for example during a Visual Studio update) must not keep the panel loading forever.
     execFile(file, args, { windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30_000 }, (error, stdout, stderr) => {
+      if (error && typeof error.code !== 'number') {
+        reject(error);
+        return;
+      }
+      resolve({ code: error ? (error.code as number) : 0, stdout, stderr });
+    });
+  });
+
+/** execFile with an environment, for MSBuild evaluations (no shell). */
+export const envExec: EnvExec = (file, args, env) =>
+  new Promise((resolve, reject) => {
+    execFile(file, args, { env, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000 }, (error, stdout, stderr) => {
       if (error && typeof error.code !== 'number') {
         reject(error);
         return;
