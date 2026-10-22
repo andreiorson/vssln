@@ -16,6 +16,12 @@ export interface BuildCommandInput {
   request: BuildRequest;
   properties: Record<string, string>;
   logFile: string;
+  /** A solution filter (.slnf) to build instead of the .sln: one wave of a build. */
+  solutionFile?: string;
+  /** More -p: values, after the settings ones (BuildProjectReferences=false for a wave). */
+  extraProperties?: Record<string, string>;
+  /** Add to the file log instead of starting it again: the later runs of one build. */
+  appendLog?: boolean;
 }
 
 /** MSBuild replaces these characters with '_' in solution target names. */
@@ -53,8 +59,9 @@ function target(input: BuildCommandInput): string {
 /** Arguments for MSBuild.exe; normal verbosity is what the output parser reads. */
 export function buildArgs(input: BuildCommandInput): string[] {
   const { sln, config, toolchain, properties, logFile } = input;
+  const extra = input.extraProperties ?? {};
   return [
-    sln.path,
+    input.solutionFile ?? sln.path,
     `-t:${target(input)}`,
     '-m',
     '-nologo',
@@ -64,7 +71,8 @@ export function buildArgs(input: BuildCommandInput): string[] {
     `-p:Platform=${config.platform}`,
     ...(toolchain.devEnvDir ? [`-p:DevEnvDir=${toolchain.devEnvDir}`] : []),
     ...Object.keys(properties).sort().map(k => `-p:${k}=${escapeValue(properties[k])}`),
+    ...Object.keys(extra).sort().map(k => `-p:${k}=${escapeValue(extra[k])}`),
     '-fl',
-    `-flp:LogFile=${logFile};Verbosity=normal;Encoding=UTF-8`,
+    `-flp:LogFile=${logFile};Verbosity=normal;Encoding=UTF-8${input.appendLog ? ';Append' : ''}`,
   ];
 }

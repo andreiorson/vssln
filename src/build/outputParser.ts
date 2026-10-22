@@ -12,6 +12,8 @@ export interface ParsedLine {
   events: BuildEvent[];
   /** What the build output shows for this line, as Visual Studio's "minimal" output does; undefined hides it. */
   display?: string;
+  /** The line belongs to MSBuild's final summary ("Build succeeded." and what follows). */
+  summary?: boolean;
 }
 
 export interface OutputOptions {
@@ -58,10 +60,21 @@ export class OutputParser {
   /** Visual Studio-style project numbers by MSBuild instance id, in the order projects start work. */
   private readonly numbers = new Map<string, number>();
   private readonly numbersByPath = new Map<string, number>();
+  private lastNumber = 0;
   /** The instance whose block the current line belongs to: lines after the prefixed one carry no prefix. */
   private current?: string;
 
   constructor(private readonly options: OutputOptions = {}) {}
+
+  /**
+   * Another MSBuild run of the same build (the next wave): its instance ids start again, while project numbers go on
+   * and a project seen before keeps its number.
+   */
+  newRun(): void {
+    this.numbers.clear();
+    this.current = undefined;
+    this.inSummary = false;
+  }
 
   /** The number a project's lines carry, once it started work. */
   numberOf(projectPath: string): number | undefined {
@@ -78,11 +91,11 @@ export class OutputParser {
     const prefix = PREFIX.exec(raw);
     if (prefix) this.current = prefix[1];
     const line = raw.replace(PREFIX, '').trim();
-    if (this.inSummary) return { events: [], display: line === '' ? undefined : line };
+    if (this.inSummary) return { events: [], display: line === '' ? undefined : line, summary: true };
 
     if (line === 'Build succeeded.' || line === 'Build FAILED.') {
       this.inSummary = true;
-      return { events: [], display: line };
+      return { events: [], display: line, summary: true };
     }
 
     const started = STARTED.exec(line);
@@ -92,7 +105,13 @@ export class OutputParser {
       if (!isProject(projectPath) || !target) return { events: [] };
       const events: BuildEvent[] = [{ kind: 'projectStarted', path: projectPath, target }];
       if (this.numbers.has(id) || this.options.counts?.(target) === false) return { events };
-      const n = this.numbers.size + 1;
+      // A project an earlier run already numbered (a reference built again) keeps its number and gets no new header.
+      const earlier = this.numbersByPath.get(projectPath.toLowerCase());
+      if (earlier !== undefined) {
+        this.numbers.set(id, earlier);
+        return { events };
+      }
+      const n = ++this.lastNumber;
       this.numbers.set(id, n);
       this.numbersByPath.set(projectPath.toLowerCase(), n);
       const name = projectPath.replace(/^.*[\\/]/, '').replace(/\.vcxproj$/i, '');

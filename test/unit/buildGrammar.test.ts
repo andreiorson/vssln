@@ -77,6 +77,14 @@ test('numbered project lines: the header is blue, results keep their colours, pr
   expect(tokens('2>Render.vcxproj -> C:\\out\\Render.dll')).toEqual([]);
 });
 
+test('waves are blue, projects not built because of a failure are yellow', () => {
+  expect(tokens('Wave 2/3: Render, MathTests')).toEqual([{ scope: 'token.info-token', text: 'Wave 2/3: Render, MathTests' }]);
+  expect(tokens('Not built because Math failed: Render, Game')).toEqual([{ scope: 'token.warn-token', text: 'Not built because Math failed: Render, Game' }]);
+  expect(tokens('The project dependencies form a cycle (A → B → A); building the solution in one run.')).toEqual([
+    { scope: 'token.warn-token', text: 'The project dependencies form a cycle (A → B → A); building the solution in one run.' },
+  ]);
+});
+
 test('summary counts and ordinary lines stay plain', () => {
   expect(tokens('    0 Error(s)')).toEqual([]);
   expect(tokens('    1 Warning(s)')).toEqual([]);

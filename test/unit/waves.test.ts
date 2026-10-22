@@ -76,6 +76,13 @@ test('references are skipped only when every one was built in an earlier wave', 
   expect(plan.skipReferences).toEqual([false, true]);
 });
 
+test('a wave with a project whose references are unknown (not C++) builds references', () => {
+  const s = solution([{ name: 'App', deps: ['Tool'] }, { name: 'Tool', csharp: true }]);
+  const plan = planWaves(s.sln, s.config, s.projects);
+  expect(plan.waves.map(s.names)).toEqual([['Tool'], ['App']]);
+  expect(plan.skipReferences).toEqual([false, true]);
+});
+
 test('a cycle builds everything in one wave and names the cycle', () => {
   const s = solution([{ name: 'A', deps: ['B'] }, { name: 'B', refs: ['C'] }, { name: 'C', deps: ['A'] }, { name: 'D' }]);
   const plan = planWaves(s.sln, s.config, s.projects);

@@ -98,6 +98,7 @@ export class Builds implements vscode.Disposable {
           now: Date.now,
           logDir: this.logDir,
           env: process.env,
+          writeFile: (p, text) => fs.promises.writeFile(p, text, 'utf8'),
           write: line => this.write(line),
           onStarted: () => {
             if (this.disposed) return;

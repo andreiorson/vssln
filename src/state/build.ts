@@ -112,6 +112,16 @@ export function carryBuild(
   return same ? prev.build : idleBuild;
 }
 
+/** Marks projects that will not be built (a project they depend on failed) as skipped, with the reason as message. */
+export function skipProjects(b: BuildState, guids: string[], reason: string): BuildState {
+  const projects = new Map(b.projects);
+  for (const guid of guids) {
+    const p = projects.get(guid);
+    if (p && (p.status === 'waiting' || p.status === 'building')) projects.set(guid, { ...p, status: 'skipped', messages: [reason] });
+  }
+  return { ...b, projects };
+}
+
 export function finishBuild(b: BuildState, outcome: { exitCode: number | null; cancelled: boolean }, now: number): BuildState {
   const projects = new Map<string, ProjectBuild>();
   for (const [guid, p] of b.projects) {

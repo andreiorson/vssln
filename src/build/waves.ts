@@ -119,8 +119,11 @@ export function planWaves(sln: ParsedSolution, config: SolutionConfig, projects:
     return { waves: [ordered.map(p => p.guid)], skipReferences: [false], cycle: findCycle(remaining.map(p => key(p.guid)), deps, byKey), dependents };
   }
 
+  // Only C++ projects have their references read; any other project may reference something MSBuild must build.
+  const knowsReferences = (p: SlnProject) => p.kind === 'vcxproj' && projects.get(p.guid)?.items !== undefined;
   const skipReferences = waves.map((wave, n) =>
     wave.every(guid =>
+      knowsReferences(byKey.get(key(guid))!) &&
       references(byKey.get(key(guid))!).every(r => {
         const target = byPath.get(pathKey(r));
         const w = target ? waveOf.get(key(target.guid)) : undefined;

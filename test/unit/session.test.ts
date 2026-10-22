@@ -14,6 +14,8 @@ const VS: VsInstance = {
   msbuildPath: 'C:\\VS\\MSBuild\\Current\\Bin\\MSBuild.exe', devEnvDir: 'C:\\VS\\Common7\\IDE\\',
 };
 const guid = (name: string) => engine.projects.find(p => p.name === name)!.guid;
+/** The sample without its .sln dependencies: builds of it are one MSBuild run, as the captured logs are. */
+const flat = { ...engine, projects: engine.projects.map(p => ({ ...p, dependencies: [] })) };
 
 function readyState(over: Partial<AppState> = {}): AppState {
   return {
@@ -21,7 +23,7 @@ function readyState(over: Partial<AppState> = {}): AppState {
     phase: 'ready',
     folder: 'C:\\src\\Engine',
     solutions: [engine.path],
-    solution: engine,
+    solution: flat,
     configuration: engine.configurations.find(c => c.name === 'Release|x64'),
     projects: new Map<string, ProjectEntry>(engine.projects.map(p => [p.guid, { exists: p.name !== 'Missing' }])),
     toolchain: VS,
@@ -49,9 +51,12 @@ function fakeRunner(log: string, exitCode: number, hold = false) {
   return { runner: new BuildRunner(spawn, async () => {}), spawned, release: () => release() };
 }
 
-function deps(store: Store, runner: BuildRunner, written: string[]): SessionDeps {
+function deps(store: Store, runner: BuildRunner, written: string[], files = new Map<string, string>()): SessionDeps {
   let t = 0;
-  return { store, runner, now: () => (t += 1000), logDir: 'C:\\logs', env: { PATH: 'C:\\bin' }, write: l => written.push(l) };
+  return {
+    store, runner, now: () => (t += 1000), logDir: 'C:\\logs', env: { PATH: 'C:\\bin' }, write: l => written.push(l),
+    writeFile: async (p, text) => void files.set(p, text),
+  };
 }
 
 test('a failed rebuild ends in the store with Math failed', async () => {
