@@ -172,7 +172,9 @@ suite('activation', () => {
     assert.strictEqual(game.description, 'exe · 3 files · startup');
     assert.strictEqual(api.views.projects.getTreeItem(roots[4]).contextValue, 'project.missing');
     const statusLabels = api.views.status.getChildren().map(r => api.views.status.getTreeItem(r).label);
-    assert.deepStrictEqual(statusLabels, ['Sample.sln', 'Release | x64', 'Game']);
+    // With Visual Studio on the machine the IntelliSense pass adds its row after the startup project.
+    const expected = ['Sample.sln', 'Release | x64', 'Game', ...(api.getState().intellisense.projects.size > 0 ? ['IntelliSense'] : [])];
+    assert.deepStrictEqual(statusLabels, expected);
   });
 
   test('the live filter shows matching projects with their folders expanded', async () => {
