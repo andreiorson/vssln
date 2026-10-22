@@ -40,11 +40,14 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Rebuild and Clean ask for confirmation; Cancel does nothing.
 - [ ] Break the build (`"environment": { "CL": "/DENGINE_BREAK_BUILD" }` in `vssln.json`), Build: `Math` turns red with a badge, its tooltip shows the error, `Core` says `1 error`, Problems has the C1189 error and clicking it opens `vector.cpp` at line 4.
 - [ ] Hover a project: the hammer builds only that project (and its dependencies); its context menu has Build, Rebuild and Clean project.
-- [ ] `Ctrl+Shift+B` builds the solution directly.
+- [ ] `Ctrl+Shift+B` builds the solution directly; pressed again during the build it says the build is already running (no "Configure Build Task" wizard).
 - [ ] A linker error (`"environment": { "LINK": "/INCLUDE:missing_symbol" }`) shows in Problems on the project file.
 - [ ] Windows with another display language (or VS Code started with `DOTNET_CLI_UI_LANGUAGE=ru-RU`): the build output is still in English and progress works.
 - [ ] A copy of the solution in a folder with Cyrillic letters builds with progress and clickable errors.
-- [ ] A failed build: the Build row and its icon are red, failed projects have red icons and labels with a badge, projects with warnings are yellow, skipped ones grey; the status bar turns red with the error count; the Rebuild button itself is not green.
+- [ ] A failed build: the Build row and its icon are red, failed projects have red icons and labels with a badge, projects with warnings are yellow, skipped ones grey; the status bar turns red with the error count; the Rebuild button itself is not green. A successful build with warnings shows a yellow Build row and `⚠ Built m:ss · N warnings`.
+
+- [ ] Problems: an error points at its line (C1189 at `vector.cpp` line 4); a warning repeated by many files appears once; a successful build clears the previous errors; switching the configuration clears them too.
+- [ ] Edit `vssln.json` without saving (for example the `environment`), then Build: the build uses the edit.
 
 ## Toolchain
 

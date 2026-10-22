@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const store = new Store();
   const registry = new ChildrenRegistry();
   const controller = new Controller(store, log);
-  const builds = new Builds(store, context.logUri.fsPath, log);
+  const builds = new Builds(store, context.logUri.fsPath, log, () => controller.reload());
 
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);

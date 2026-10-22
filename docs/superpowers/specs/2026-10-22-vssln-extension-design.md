@@ -73,7 +73,7 @@ Default configuration when nothing is saved: `Release|x64` if present, otherwise
 
 ### 4.3 Status bar
 
-Three compact items: configuration, startup project, IntelliSense counter. During a build: progress and error count. Clicking an item opens the matching QuickPick or focuses the panel.
+Three compact items: configuration, startup project, IntelliSense counter. During a build: progress and error count. After a build: `✓ Built m:ss` (`Rebuilt`, `Cleaned`; `⚠ … · N warnings` when there were warnings), or a red background with the error count (`Build failed` when MSBuild failed without a recognised error). No text colors: green on the blue or orange (debugging) status bar is unreadable.
 
 ### 4.4 Empty and error states
 
@@ -84,7 +84,7 @@ Three compact items: configuration, startup project, IntelliSense counter. Durin
 ### 4.5 Integration with VS Code mechanisms
 
 - Every action is a command and is available from the command palette.
-- `Ctrl+Shift+B` runs Build solution while a solution is loaded (keybinding `vssln.build`, when `vssln.phase == ready`).
+- `Ctrl+Shift+B` runs Build solution while a solution is loaded (keybinding `vssln.build`, when `vssln.phase == ready`; during a build it says the build is already running). It takes the place of the workspace's default build task while a solution is loaded; `-vssln.build` in keybindings.json gives it back. From a focused terminal the keys go to the shell unless `vssln.build` is added to `terminal.integrated.commandsToSkipShell`.
 - `F5` works through a `DebugConfigurationProvider` (section 7) with no `launch.json`.
 - Compiler and linker errors reach the Problems panel through the extension's own diagnostic collection (source `MSBuild`); errors without a source position are shown on the project file.
 
@@ -172,7 +172,7 @@ Triggered by `F5`, the Debug and Run buttons, or the project context menu.
    Then overrides from `projects.<name>.debug` and its `byConfiguration` entry are applied, and variables are expanded.
 3. Start a `cppvsdbg` session with `program`, `args`, `cwd`, `environment`, `console`. Run without debugging uses the same configuration with `noDebug: true`.
 
-A user may still write a `launch.json` entry with `"type": "vssln", "project": "Game"` (other fields optional); the provider's resolver fills in the rest. Commands usable as variables are contributed: `${command:vssln.targetPath}`, `${command:vssln.startupProject}`, `${command:vssln.configuration}`.
+A user may still write a `launch.json` entry with `"type": "vssln", "project": "Game"` (other fields optional); the provider's resolver fills in the rest. Build before launch goes through the same build path as the panel (`Builds.run`); there are no VS Code tasks to use as `preLaunchTask` (they were removed with the move to the Output channel).
 
 `ms-vscode.cpptools` is declared in `extensionDependencies`: it supplies `cppvsdbg` and the IntelliSense provider API.
 
@@ -210,7 +210,7 @@ The open question of the brief (cpptools re-query after `didChangeCustomConfigur
 | `ui/*` | tree data providers, QuickPicks, status bar, welcome views | manual |
 | `extension` | wiring only | manual |
 
-Data flow: `settings/file` and `solution/slnParser` feed `state/store`; user actions go through commands to `state/coordinator`, which starts build tasks, debug sessions or IntelliSense work; all of them report back into `state/store`; `ui/viewModel` derives what the views show, and view updates are coalesced.
+Data flow: `settings/file` and `solution/slnParser` feed `state/store`; user actions go through commands to `state/coordinator`, which starts builds, debug sessions or IntelliSense work; all of them report back into `state/store`; `ui/viewModel` derives what the views show, and view updates are coalesced.
 
 Stack as in the brief: TypeScript, esbuild bundle, vitest, `vscode-cpptools` types, `vsce package --no-dependencies`; plus `jsonc-parser`.
 
@@ -232,7 +232,7 @@ Stack as in the brief: TypeScript, esbuild bundle, vitest, `vscode-cpptools` typ
 ## 12. Phases
 
 1. Skeleton, `.sln` parser, model, settings file and resolver, `vswhere`, both views, status bar, QuickPicks.
-2. Build: task provider, output parser, per-project progress, Problems integration. Starts by verifying the MSBuild output format.
+2. Build: MSBuild arguments, output parser, per-project progress, Output channel with colors, Problems collection, Stop. Starts by verifying the MSBuild output format.
 3. Debug: debug property evaluation, launch resolver, debug configuration provider, build before launch.
 4. IntelliSense: port of the brief's pipeline into the shared state; starts by verifying the brief's open question about cpptools re-query and provider selection.
 

@@ -12,6 +12,20 @@ async function waitFor(condition: () => boolean, timeoutMs: number): Promise<voi
   }
 }
 
+/** Windows briefly refuses to recreate a folder that was just deleted while VS Code watched it. */
+async function writeRetrying(file: string, text: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, text);
+      return;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EPERM' || attempt >= 20) throw e;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+}
+
 suite('activation', () => {
   test('loads the fixture solution', async () => {
     const ext = vscode.extensions.getExtension<VsslnApi>('local.vssln');
@@ -54,8 +68,7 @@ suite('activation', () => {
     });
 
     test('a selection change does not write behind an unsaved vssln.json editor', async () => {
-      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-      fs.writeFileSync(settingsPath, '{}\n');
+      await writeRetrying(settingsPath, '{}\n');
       const editor = await vscode.window.showTextDocument(vscode.Uri.file(settingsPath));
       await editor.edit(e => e.insert(new vscode.Position(0, 1), ' "configuration": "Debug|x64" '));
       assert.ok(editor.document.isDirty);

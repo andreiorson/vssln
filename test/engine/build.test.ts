@@ -22,9 +22,25 @@ async function api(): Promise<VsslnApi> {
 /** Starts a build without the confirmation dialog and returns once it is running. */
 async function startBuild(a: VsslnApi, action: 'Build' | 'Rebuild' | 'Clean'): Promise<{ done: Promise<unknown> }> {
   const done = a.builds.run(action);
-  await waitFor(() => a.getState().build.status === 'running', 30000);
+  // A refused build ends at once: report its reason instead of waiting for a timeout.
+  const early = await Promise.race([done, waitFor(() => a.getState().build.status === 'running', 30000).then(() => undefined)]);
+  if (early && (early as { started: boolean }).started === false) assert.fail(`build refused: ${(early as { reason: string }).reason}`);
   // Wrapped: an async function would otherwise wait for the returned promise.
   return { done };
+}
+
+/** Writes vssln.json; Windows briefly refuses to recreate a folder that was just deleted while being watched. */
+async function writeSettings(dir: string, text: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'vssln.json'), text);
+      return;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EPERM' || attempt >= 20) throw e;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
 }
 
 const finished = (a: VsslnApi) => () => !['idle', 'running'].includes(a.getState().build.status);
@@ -63,8 +79,7 @@ suite('build samples/Engine', () => {
   test('a broken build fails in Math and fills Problems', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
-    fs.mkdirSync(settingsDir, { recursive: true });
-    fs.writeFileSync(path.join(settingsDir, 'vssln.json'), '{ "environment": { "CL": "/DENGINE_BREAK_BUILD" } }\n');
+    await writeSettings(settingsDir, '{ "environment": { "CL": "/DENGINE_BREAK_BUILD" } }\n');
     await waitFor(() => a.getState().settings.environment?.CL === '/DENGINE_BREAK_BUILD', 30000);
 
     await (await startBuild(a, 'Rebuild')).done;
@@ -76,18 +91,51 @@ suite('build samples/Engine', () => {
     );
 
     const vector = vscode.Uri.file(path.join(folder, 'Core', 'Math', 'vector.cpp'));
-    await waitFor(() => vscode.languages.getDiagnostics(vector).some(d => String(d.code).includes('C1189') || d.message.includes('ENGINE_BREAK_BUILD')), 30000);
+    await waitFor(() => vscode.languages.getDiagnostics(vector).some(d => String(d.code).includes('C1189')), 30000);
+    const c1189 = vscode.languages.getDiagnostics(vector).find(d => String(d.code).includes('C1189'))!;
+    assert.strictEqual(c1189.range.start.line, 3);
+    assert.strictEqual(c1189.source, 'MSBuild');
 
     const math = vscode.Uri.parse(projectUri(guidOf(a, 'Math')));
     const decoration = a.views.decorations.provideFileDecoration(math);
     assert.strictEqual(decoration?.badge, '1');
   });
 
+  test('a successful build after a failed one clears Problems', async function () {
+    const a = await api();
+    if (!a.getState().toolchain) this.skip();
+    fs.rmSync(settingsDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    await waitFor(() => a.getState().settings.environment === undefined, 30000);
+    await (await startBuild(a, 'Rebuild')).done;
+    assert.strictEqual(a.getState().build.status, 'succeeded');
+    const vector = vscode.Uri.file(path.join(folder, 'Core', 'Math', 'vector.cpp'));
+    assert.deepStrictEqual(vscode.languages.getDiagnostics(vector), []);
+  });
+
+  test('an unsaved vssln.json edit is applied to the build', async function () {
+    const a = await api();
+    if (!a.getState().toolchain) this.skip();
+    const settingsPath = path.join(settingsDir, 'vssln.json');
+    await writeSettings(settingsDir, '{}\n');
+    await waitFor(() => a.getState().settings.environment === undefined, 30000);
+    const doc = await vscode.workspace.openTextDocument(settingsPath);
+    const editor = await vscode.window.showTextDocument(doc);
+    await editor.edit(e => e.replace(new vscode.Range(0, 0, doc.lineCount, 0), '{ "environment": { "CL": "/DENGINE_BREAK_BUILD" } }\n'));
+    assert.ok(doc.isDirty);
+    try {
+      await (await startBuild(a, 'Rebuild')).done;
+      assert.strictEqual(a.getState().build.status, 'failed');
+      assert.strictEqual(a.getState().build.projects.get(guidOf(a, 'Math'))!.errors, 1);
+    } finally {
+      await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+      fs.rmSync(settingsDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
+  });
+
   test('linker errors without a source position reach Problems on the project file', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
-    fs.mkdirSync(settingsDir, { recursive: true });
-    fs.writeFileSync(path.join(settingsDir, 'vssln.json'), '{ "environment": { "LINK": "/INCLUDE:vssln_missing_symbol" } }\n');
+    await writeSettings(settingsDir, '{ "environment": { "LINK": "/INCLUDE:vssln_missing_symbol" } }\n');
     await waitFor(() => a.getState().settings.environment?.LINK !== undefined, 30000);
 
     await (await startBuild(a, 'Rebuild')).done;
@@ -105,8 +153,7 @@ suite('build samples/Engine', () => {
     await waitFor(() => a.getState().settings.environment === undefined && a.getState().configuration?.name === 'Release|x64', 30000);
 
     const { done } = await startBuild(a, 'Rebuild');
-    fs.mkdirSync(settingsDir, { recursive: true });
-    fs.writeFileSync(path.join(settingsDir, 'vssln.json'), '{ "configuration": "Debug|x64" }\n');
+    await writeSettings(settingsDir, '{ "configuration": "Debug|x64" }\n');
     await new Promise(resolve => setTimeout(resolve, 1500));
     if (a.getState().build.status === 'running') assert.strictEqual(a.getState().configuration?.name, 'Release|x64');
     // The deferred reload runs when the build ends; the new configuration then also resets the build row.
