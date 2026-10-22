@@ -74,6 +74,11 @@ test('folder row', () => {
   expect(projectRow(node('Core'), s).description).toBeUndefined();
 });
 
+test('a project mapped without Build.0 is shown as not built', () => {
+  // Render has only ActiveCfg for Release|x64 in the fixture solution.
+  expect(projectRow(node('Render'), s)).toMatchObject({ description: 'not built in Release|x64', icon: 'circle-slash', inactive: true, contextValue: 'project.inactive' });
+});
+
 test('inactive reasons', () => {
   expect(projectRow(node('Legacy'), s)).toMatchObject({ description: 'not in Release|x64', icon: 'circle-slash', inactive: true, contextValue: 'project.inactive' });
   expect(projectRow(node('Missing'), s)).toMatchObject({ description: 'file not found', inactive: true, contextValue: 'project.missing' });
@@ -83,7 +88,6 @@ test('inactive reasons', () => {
 test('active project description', () => {
   expect(projectRow(node('Game'), s)).toMatchObject({ label: 'Game', description: 'exe · 3 files · startup', icon: 'window', contextValue: 'project.app', inactive: false });
   expect(projectRow(node('Math'), s)).toMatchObject({ description: 'lib · 5 files', icon: 'library', contextValue: 'project.lib' });
-  expect(projectRow(node('Render'), s)).toMatchObject({ description: 'dll · 1 file', icon: 'extensions', contextValue: 'project.lib' });
 });
 
 test('unknown type has no short name and a generic icon', () => {

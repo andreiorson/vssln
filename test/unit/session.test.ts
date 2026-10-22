@@ -44,7 +44,7 @@ function fakeRunner(log: string, exitCode: number, hold = false) {
     };
     if (hold) release = play;
     else setImmediate(play);
-    return { pid: 1, onLine: cb => (lineCb = cb), onExit: cb => (exitCb = cb) };
+    return { pid: 1, onLine: cb => (lineCb = cb), onError: () => {}, onExit: cb => (exitCb = cb) };
   };
   return { runner: new BuildRunner(spawn, async () => {}), spawned, release: () => release() };
 }
@@ -78,8 +78,86 @@ test('MSBuild gets the arguments, the expanded environment and English output', 
   await runBuild(deps(store, runner, []), { action: 'Build' });
   expect(spawned[0].file).toBe(VS.msbuildPath);
   expect(spawned[0].args).toContain('-p:UseMultiToolTask=true');
-  expect(spawned[0].env).toMatchObject({ PATH: 'C:\\bin', ENGINE_SDK: 'C:\\src\\Engine\\sdk', VSLANG: '1033' });
+  // MSBuild takes its language from DOTNET_CLI_UI_LANGUAGE; cl and link from VSLANG.
+  expect(spawned[0].env).toMatchObject({ PATH: 'C:\\bin', ENGINE_SDK: 'C:\\src\\Engine\\sdk', VSLANG: '1033', DOTNET_CLI_UI_LANGUAGE: 'en-US' });
   expect(store.state.build.status).toBe('succeeded');
+});
+
+test('settings override environment variables regardless of case, and editor-only variables are dropped', async () => {
+  const store = new Store();
+  store.set(readyState({ settings: { environment: { path: 'D:\\tools' } } }));
+  const { runner, spawned } = fakeRunner('msbuild/build-incremental.log', 0);
+  const d = deps(store, runner, []);
+  d.env = { Path: 'C:\\bin', ELECTRON_RUN_AS_NODE: '1', VSCODE_PID: '7', OTHER: 'x' };
+  await runBuild(d, { action: 'Build' });
+  const env = spawned[0].env;
+  expect(Object.keys(env).filter(k => k.toLowerCase() === 'path').map(k => env[k])).toEqual(['D:\\tools']);
+  expect(env.ELECTRON_RUN_AS_NODE).toBeUndefined();
+  expect(env.VSCODE_PID).toBeUndefined();
+  expect(env.OTHER).toBe('x');
+});
+
+test('a Clean call during a Rebuild is not reported as the project succeeding', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const { runner } = fakeRunner('msbuild/rebuild-failed.log', 1);
+  const written: string[] = [];
+  await runBuild(deps(store, runner, written), { action: 'Rebuild' });
+  expect(written).not.toContain('Render: succeeded');
+  expect(written).toContain('Platform: succeeded');
+  expect(written).toContain('Math: FAILED');
+});
+
+test('an exception from the runner still finishes the build', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const runner = new BuildRunner(() => {
+    throw new Error('spawn exploded');
+  }, async () => {});
+  const written: string[] = [];
+  const r = await runBuild(deps(store, runner, written), { action: 'Build' });
+  expect(r.started).toBe(true);
+  expect(store.state.build.status).toBe('failed');
+  expect(written.some(l => l.includes('spawn exploded'))).toBe(true);
+});
+
+test('a process that cannot start is explained', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const spawn: Spawn = () => {
+    let errorCb: (m: string) => void = () => {};
+    let exitCb: (c: number | null) => void = () => {};
+    setImmediate(() => {
+      errorCb('spawn C:\\VS\\MSBuild.exe ENOENT');
+      exitCb(null);
+    });
+    return { pid: undefined, onLine: () => {}, onError: cb => (errorCb = cb), onExit: cb => (exitCb = cb) };
+  };
+  const written: string[] = [];
+  await runBuild(deps(store, new BuildRunner(spawn, async () => {}), written), { action: 'Build' });
+  expect(written).toContain('MSBuild could not start: spawn C:\\VS\\MSBuild.exe ENOENT');
+  expect(store.state.build.status).toBe('failed');
+});
+
+test('a stopped build says so', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const proc = { exit: (_c: number | null) => {} };
+  const spawn: Spawn = () => ({ pid: 9, onLine: () => {}, onError: () => {}, onExit: cb => (proc.exit = cb) });
+  const runner = new BuildRunner(spawn, async () => proc.exit(1));
+  const written: string[] = [];
+  const done = runBuild(deps(store, runner, written), { action: 'Build' });
+  await runner.stop();
+  await done;
+  expect(store.state.build.status).toBe('cancelled');
+  expect(written).toContain('Build stopped.');
+});
+
+test('a build requested while the solution loads says so', async () => {
+  const store = new Store();
+  store.set({ ...initialState, phase: 'loading' });
+  const { runner } = fakeRunner('msbuild/build-incremental.log', 0);
+  expect(await runBuild(deps(store, runner, []), { action: 'Build' })).toEqual({ started: false, reason: 'The solution is still loading.' });
 });
 
 test('a project build starts with only that project and names it', async () => {

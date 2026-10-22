@@ -63,6 +63,12 @@ test('no DevEnvDir argument when the toolchain has none', () => {
   expect(buildArgs(input({ toolchain: { ...VS, devEnvDir: '' } })).some(a => a.startsWith('-p:DevEnvDir'))).toBe(false);
 });
 
+test('property values with separators are escaped for MSBuild', () => {
+  expect(buildArgs(input({ properties: { Imports: 'a.props;b.props', List: 'x,y', Pct: '50%' } }))).toEqual(expect.arrayContaining([
+    '-p:Imports=a.props%3Bb.props', '-p:List=x%2Cy', '-p:Pct=50%25',
+  ]));
+});
+
 test('platform with a space stays one argument', () => {
   const anyCpu = { name: 'Release|Any CPU', configuration: 'Release', platform: 'Any CPU' };
   expect(buildArgs(input({ config: anyCpu }))).toContain('-p:Platform=Any CPU');

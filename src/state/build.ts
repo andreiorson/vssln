@@ -59,7 +59,7 @@ export function startBuild(request: BuildRequest, expectedGuids: string[], logFi
 }
 
 /** A Rebuild also cleans references with a separate Clean call; only the target that does the requested work counts. */
-function counts(action: BuildAction | undefined, target: WorkTarget): boolean {
+export function counts(action: BuildAction | undefined, target: WorkTarget): boolean {
   return action === 'Clean' ? target === 'Clean' : target !== 'Clean';
 }
 

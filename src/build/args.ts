@@ -38,6 +38,11 @@ export function solutionTargetName(sln: ParsedSolution, project: SlnProject): st
   return parts.map(cleanse).join('\\');
 }
 
+/** MSBuild splits -p: values on ';' and ','; its %XX escapes keep them whole. */
+function escapeValue(value: string): string {
+  return value.replace(/%/g, '%25').replace(/;/g, '%3B').replace(/,/g, '%2C');
+}
+
 function target(input: BuildCommandInput): string {
   const { request, sln } = input;
   if (!request.project) return request.action;
@@ -58,7 +63,7 @@ export function buildArgs(input: BuildCommandInput): string[] {
     `-p:Configuration=${config.configuration}`,
     `-p:Platform=${config.platform}`,
     ...(toolchain.devEnvDir ? [`-p:DevEnvDir=${toolchain.devEnvDir}`] : []),
-    ...Object.keys(properties).sort().map(k => `-p:${k}=${properties[k]}`),
+    ...Object.keys(properties).sort().map(k => `-p:${k}=${escapeValue(properties[k])}`),
     '-fl',
     `-flp:LogFile=${logFile};Verbosity=normal;Encoding=UTF-8`,
   ];

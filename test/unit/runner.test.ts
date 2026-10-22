@@ -8,6 +8,7 @@ function fakeProcess(pid = 42) {
   const proc: ChildProcessLike & { emit(line: string): void; exit(code: number | null): void } = {
     pid,
     onLine: cb => (lineCb = cb),
+    onError: () => {},
     onExit: cb => (exitCb = cb),
     emit: line => lineCb(line),
     exit: code => exitCb(code),

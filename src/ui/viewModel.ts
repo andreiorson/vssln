@@ -90,7 +90,7 @@ function buildRow(b: BuildState, now: number): StatusRow | undefined {
     case 'succeeded':
       return { ...common, icon: 'pass', description: `succeeded · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
     case 'failed':
-      return { ...common, icon: 'error', description: `failed · ${plural(b.errors, 'error')} · ${clock(finishedAt)}`, contextValue: 'status.build' };
+      return { ...common, icon: 'error', description: `failed · ${plural(b.errors, 'error')} · ${clock(finishedAt)} · ${duration(finishedAt - (b.startedAt ?? finishedAt))}`, contextValue: 'status.build' };
     case 'cancelled':
       return { ...common, icon: 'circle-slash', description: `stopped · ${clock(finishedAt)}`, contextValue: 'status.build' };
   }
@@ -154,13 +154,14 @@ export function statusRows(s: AppState, now = Date.now()): StatusRow[] {
   return [...rows, ...(build ? [build] : []), ...problemRows(s)];
 }
 
-function projectBuildDescription(p: ProjectBuild): string {
+function projectBuildDescription(p: ProjectBuild, action: BuildState['action']): string {
   switch (p.status) {
     case 'waiting':
     case 'building':
     case 'skipped':
       return p.status;
     case 'succeeded':
+      if (action === 'Clean') return 'cleaned';
       return `built · ${Math.round(((p.finishedAt ?? 0) - (p.startedAt ?? p.finishedAt ?? 0)) / 1000)}s`;
     case 'failed':
       return p.errors > 0 ? plural(p.errors, 'error') : 'failed';
@@ -187,9 +188,12 @@ export function projectUri(guid: string): string {
   return 'vssln-project:/' + guid.replace(/[{}]/g, '').toLowerCase();
 }
 
-type ProjectStatus = { inactive: string } | { type: ConfigurationType; files: number };
+type ProjectStatus = { inactive: string } | { type: ConfigurationType; files: number; notBuilt?: string };
 
-/** Why a project is inactive in the current configuration, or its type and file count. */
+/**
+ * Why a project is inactive in the current configuration, or its type and file count. A project that is mapped but not
+ * built by the configuration (unchecked in Configuration Manager) has a type and `notBuilt`: references still build it.
+ */
 export function projectStatus(project: SlnProject, s: AppState): ProjectStatus {
   if (project.kind !== 'vcxproj') return { inactive: 'not a C++ project' };
   const entry = s.projects.get(project.guid);
@@ -200,7 +204,14 @@ export function projectStatus(project: SlnProject, s: AppState): ProjectStatus {
   return {
     type: typeFor(entry.scan, `${mapping.configuration}|${mapping.platform}`),
     files: (entry.scan?.sources ?? 0) + (entry.scan?.headers ?? 0),
+    ...(mapping.build ? {} : { notBuilt: `not built in ${config}` }),
   };
+}
+
+/** Inactive for display: no type, or not built and not part of the current build either. */
+function inactiveReason(status: ProjectStatus, building: boolean): string | undefined {
+  if ('inactive' in status) return status.inactive;
+  return building ? undefined : status.notBuilt;
 }
 
 export function projectRow(node: TreeNode, s: AppState): ProjectRow {
@@ -212,14 +223,17 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
 
   const project = node.project;
   const status = projectStatus(project, s);
-  if ('inactive' in status) {
+  const build = s.build.projects.get(project.guid);
+  const inactive = inactiveReason(status, build !== undefined);
+  if (inactive !== undefined || 'inactive' in status) {
+    const reason = inactive ?? '';
     return {
       label: node.label,
-      description: status.inactive,
-      tooltip: `${project.absPath}\n${status.inactive}`,
+      description: reason,
+      tooltip: `${project.absPath}\n${reason}`,
       icon: 'circle-slash',
       // A missing file cannot be opened or revealed, so its menu differs.
-      contextValue: status.inactive === 'file not found' ? 'project.missing' : 'project.inactive',
+      contextValue: reason === 'file not found' ? 'project.missing' : 'project.inactive',
       resourceUri,
       inactive: true,
     };
@@ -227,10 +241,9 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
 
   const parts = [TYPE_SHORT[status.type], plural(status.files, 'file')];
   if (project.guid === s.startupProjectGuid) parts.push('startup');
-  const build = s.build.projects.get(project.guid);
   return {
     label: node.label,
-    description: build ? projectBuildDescription(build) : parts.filter(Boolean).join(' · '),
+    description: build ? projectBuildDescription(build, s.build.action) : parts.filter(Boolean).join(' · '),
     tooltip: build?.messages.length ? `${project.absPath}\n${build.messages.join('\n')}` : project.absPath,
     icon: build?.status === 'building' ? 'loading~spin' : TYPE_ICONS[status.type],
     contextValue: status.type === 'Application' ? 'project.app' : 'project.lib',
@@ -243,8 +256,9 @@ export function projectDecoration(uri: string, s: AppState): Decoration | undefi
   const project = s.solution?.projects.find(p => projectUri(p.guid) === uri);
   if (!project) return undefined;
   const status = projectStatus(project, s);
-  if ('inactive' in status) return { color: 'disabledForeground', tooltip: status.inactive };
   const build = s.build.projects.get(project.guid);
+  const inactive = inactiveReason(status, build !== undefined);
+  if (inactive !== undefined) return { color: 'disabledForeground', tooltip: inactive };
   if (build?.status === 'failed') {
     return {
       color: 'list.errorForeground',
@@ -269,7 +283,7 @@ export function statusBarItems(s: AppState): StatusBarEntry[] {
   }
   const b = s.build;
   if (b.status === 'running') {
-    items.push({ id: 'build', text: `$(sync~spin) Building ${b.done}/${b.total}`, tooltip: 'Build in progress', command: 'vssln.showBuildOutput' });
+    items.push({ id: 'build', text: `$(sync~spin) Building ${b.done}/${b.total}${b.errors > 0 ? ` · $(error) ${b.errors}` : ''}`, tooltip: 'Build in progress', command: 'vssln.showBuildOutput' });
   } else if (b.status === 'failed') {
     items.push({ id: 'build', text: `$(error) ${b.errors}`, tooltip: `Build failed: ${plural(b.errors, 'error')}`, command: 'workbench.actions.view.problems' });
   }

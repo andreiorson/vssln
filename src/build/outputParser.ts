@@ -1,5 +1,3 @@
-import * as path from 'path';
-
 /** "default targets" is reported as Build. */
 export type WorkTarget = 'Build' | 'Rebuild' | 'Clean';
 
@@ -19,7 +17,9 @@ const PREFIX = /^\s*\d+(?::\d+)?>/;
 // The targets part itself contains parentheses: "(Rebuild target(s))".
 const STARTED = /Project "[^"]+" \(\d+(?::\d+)?\) is building "([^"]+)" \(\d+(?::\d+)?\) on node \d+ \((.*?)\)\.$/;
 const FINISHED = /^Done Building Project "([^"]+)" \((.*?)\)( -- FAILED)?\.$/;
-const DIAGNOSTIC = /^(.*?)\s*:\s*(error|warning)\s+([A-Za-z]+\d+)\s*:\s*(.*?)(?:\s+\[([^\]]+)\])?$/;
+// "<origin> : [subcategory] [fatal] error|warning [CODE] : <text> [<project>]", e.g. "LINK : fatal error LNK1104: …",
+// "cl : command line error D8016: …", "EXEC : error : …".
+const DIAGNOSTIC = /^(.*?)\s*:\s*(?:[A-Za-z][A-Za-z ]*?\s)?(?:fatal\s+)?(error|warning)(?:\s+([A-Za-z]+\d+))?\s*:\s*(.*?)(?:\s+\[([^\]]+)\])?$/;
 // Only these targets are real work; references also call GetTargetPath and the like.
 const WORK_TARGETS = /^(default targets|(Build|Rebuild|Clean) target\(s\))$/;
 
@@ -58,11 +58,8 @@ export class OutputParser {
       const [, projectPath, targets, failed] = finished;
       const target = workTarget(targets);
       if (!isProject(projectPath) || !target) return { events: [] };
-      const name = path.win32.basename(projectPath).replace(/\.vcxproj$/i, '');
-      return {
-        events: [{ kind: 'projectFinished', path: projectPath, target, failed: failed !== undefined }],
-        display: `${name}: ${failed ? 'FAILED' : 'succeeded'}`,
-      };
+      // Shown by the session, which knows whether this target is the build's work or a side call.
+      return { events: [{ kind: 'projectFinished', path: projectPath, target, failed: failed !== undefined }] };
     }
 
     const diagnostic = DIAGNOSTIC.exec(line);

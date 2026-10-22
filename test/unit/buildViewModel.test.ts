@@ -62,7 +62,7 @@ test('finished build rows', () => {
   const ok = withBuild(build([started('Math'), finished('Math')], { exitCode: 0, cancelled: false }));
   expect(buildRow(ok)).toMatchObject({ icon: 'pass', description: `succeeded · ${clock(66_000)} · 1:05`, contextValue: 'status.build' });
   const failed = withBuild(build([error('Math'), error('Math')], { exitCode: 1, cancelled: false }));
-  expect(buildRow(failed)).toMatchObject({ icon: 'error', description: `failed · 2 errors · ${clock(66_000)}` });
+  expect(buildRow(failed)).toMatchObject({ icon: 'error', description: `failed · 2 errors · ${clock(66_000)} · 1:05` });
   const stopped = withBuild(build([], { exitCode: null, cancelled: true }));
   expect(buildRow(stopped)).toMatchObject({ icon: 'circle-slash', description: `stopped · ${clock(66_000)}` });
 });
@@ -93,6 +93,20 @@ test('project descriptions during and after a build', () => {
   expect(projectRow(node('Math'), skipped).description).toBe('skipped');
 });
 
+test('a project the configuration does not build shows its build status when a reference builds it', () => {
+  const st = withBuild(build([started('Render'), finished('Render')], { exitCode: 0, cancelled: false }));
+  expect(projectRow(node('Render'), st)).toMatchObject({ description: 'built · 1s', icon: 'extensions', contextValue: 'project.lib', inactive: false });
+  expect(projectDecoration(projectUri(project('Render').guid), st)).toBeUndefined();
+  const notInBuild = withBuild(startBuild({ action: 'Build' }, [project('Math').guid], 'l', 0));
+  expect(projectRow(node('Render'), notInBuild).description).toBe('not built in Release|x64');
+});
+
+test('a cleaned project says cleaned', () => {
+  let b = startBuild({ action: 'Clean' }, [project('Math').guid], 'l', 0);
+  b = applyBuildEvent(b, { kind: 'projectFinished', path: project('Math').absPath, target: 'Clean', failed: false }, byPath, 10);
+  expect(projectRow(node('Math'), withBuild(finishBuild(b, { exitCode: 0, cancelled: false }, 20))).description).toBe('cleaned');
+});
+
 test('projects outside the build keep their usual description', () => {
   expect(projectRow(node('Legacy'), withBuild(build([]))).description).toBe('not in Release|x64');
 });
@@ -120,6 +134,8 @@ test('error badges are capped at two characters', () => {
 test('status bar build entry', () => {
   const running = withBuild(build([started('Math'), finished('Math')]));
   expect(statusBarItems(running).find(i => i.id === 'build')).toEqual({ id: 'build', text: '$(sync~spin) Building 1/3', tooltip: 'Build in progress', command: 'vssln.showBuildOutput' });
+  const runningWithErrors = withBuild(build([started('Math'), error('Math'), error('Math')]));
+  expect(statusBarItems(runningWithErrors).find(i => i.id === 'build')!.text).toBe('$(sync~spin) Building 0/3 · $(error) 2');
   const failed = withBuild(build([error('Math'), error('Game')], { exitCode: 1, cancelled: false }));
   expect(statusBarItems(failed).find(i => i.id === 'build')).toEqual({ id: 'build', text: '$(error) 2', tooltip: 'Build failed: 2 errors', command: 'workbench.actions.view.problems' });
   expect(statusBarItems(withBuild(build([], { exitCode: 0, cancelled: false }))).find(i => i.id === 'build')).toBeUndefined();

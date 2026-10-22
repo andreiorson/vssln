@@ -68,10 +68,31 @@ test('events carry their target', () => {
     .toEqual([{ kind: 'projectFinished', path: 'C:\\a\\M.vcxproj', target: 'Rebuild', failed: true }]);
 });
 
+test('fatal, code-less and categorized diagnostics are recognised and displayed', () => {
+  const cases: [string, 'error' | 'warning', string | undefined][] = [
+    ['     5>C:\\out\\Audio.dll : fatal error LNK1120: 1 unresolved externals [C:\\a\\Audio.vcxproj]', 'error', 'C:\\a\\Audio.vcxproj'],
+    ['     5>LINK : fatal error LNK1104: cannot open file \'x.lib\' [C:\\a\\Game.vcxproj]', 'error', 'C:\\a\\Game.vcxproj'],
+    ['     5>LINK : error LNK2001: unresolved external symbol foo [C:\\a\\Audio.vcxproj]', 'error', 'C:\\a\\Audio.vcxproj'],
+    ['     6>cl : command line error D8016: \'/ZI\' and \'/Gy-\' command-line options are incompatible [C:\\a\\Math.vcxproj]', 'error', 'C:\\a\\Math.vcxproj'],
+    ['     6>EXEC : error : the tool failed [C:\\a\\Shaders.vcxproj]', 'error', 'C:\\a\\Shaders.vcxproj'],
+    ['     6>C:\\a\\m.cpp(3): warning C4100: unused [C:\\a\\Math.vcxproj]', 'warning', 'C:\\a\\Math.vcxproj'],
+  ];
+  for (const [line, severity, projectPath] of cases) {
+    const r = new OutputParser().push(line);
+    expect(r.events).toEqual([{ kind: 'diagnostic', severity, projectPath, text: line.replace(/^\s*\d+>/, '') }]);
+    expect(r.display).toBe(line.replace(/^\s*\d+>/, ''));
+  }
+});
+
+test('ordinary messages that mention errors are not diagnostics', () => {
+  const p = new OutputParser();
+  expect(p.push('         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.').events).toEqual([]);
+});
+
 test('display lines', () => {
   const p = new OutputParser();
-  expect(p.push('     6>Done Building Project "C:\\a\\Math.vcxproj" (Rebuild target(s)) -- FAILED.').display).toBe('Math: FAILED');
-  expect(p.push('     7>Done Building Project "C:\\a\\Platform.vcxproj" (Rebuild target(s)).').display).toBe('Platform: succeeded');
+  // Finish lines are shown by the session, which knows whether the target counts for the build.
+  expect(p.push('     6>Done Building Project "C:\\a\\Math.vcxproj" (Rebuild target(s)) -- FAILED.').display).toBeUndefined();
   expect(p.push('  Game.vcxproj -> C:\\out\\Game.exe').display).toBe('Game.vcxproj -> C:\\out\\Game.exe');
   expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Math.vcxproj" (6) on node 7 (Rebuild target(s)).').display).toBeUndefined();
   expect(p.push('     6>C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]').display).toBe('C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]');
