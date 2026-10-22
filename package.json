@@ -320,7 +320,7 @@
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "npm run build && tsc -p test/integration && vscode-test",
+    "test:integration": "npm run build && tsc -p test/integration && tsc -p test/engine && vscode-test",
     "package": "vsce package --no-dependencies --skip-license --allow-missing-repository"
   },
   "dependencies": {

@@ -6,3 +6,4 @@ out/
 .superpowers/
 samples/Engine/out/
 .vs/
+samples/Engine/.vscode/
