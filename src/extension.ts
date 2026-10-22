@@ -13,7 +13,7 @@ import { deletionAffects } from './util/paths';
 export interface VsslnApi {
   getState(): AppState;
   /** The tree data providers behind the side bar, for tests and other extensions. */
-  views: { status: StatusView; projects: ProjectsView };
+  views: { status: StatusView; projects: ProjectsView; decorations: ProjectDecorations };
 }
 
 export function activate(context: vscode.ExtensionContext): VsslnApi {
@@ -66,6 +66,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     vscode.workspace.onDidChangeWorkspaceFolders(reload),
     store.onDidChange(setContext),
     builds,
+    controller,
     ...registerCommands(store, controller, log),
     ...registerBuildCommands(builds),
   );
@@ -73,7 +74,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   void controller.reload();
   log.info(`Activated; project decorations use the ${PROJECT_SCHEME} scheme.`);
 
-  return { getState: () => store.state, views: { status: statusView, projects: projectsView } };
+  return { getState: () => store.state, views: { status: statusView, projects: projectsView, decorations } };
 }
 
 export function deactivate(): void {}

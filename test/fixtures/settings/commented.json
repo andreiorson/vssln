@@ -14,7 +14,6 @@
   "environment": { "ENGINE_SDK": "${workspaceFolder}/sdk" },
 
   "build": {
-    "saveBeforeBuild": true,
     "buildBeforeDebug": true
   },
 

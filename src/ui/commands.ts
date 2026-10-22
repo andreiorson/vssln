@@ -13,14 +13,32 @@ import { exec, findRealToolchain, loaderDeps, nodeFs, workspaceFolders } from '.
 import { configurationItems, PickItem, solutionItems, startupItems } from './pickItems';
 
 /** Loads the workspace into the store and applies the user's selections to the settings file. */
-export class Controller {
+export class Controller implements vscode.Disposable {
   private generation = 0;
   private readonly toolchain = cachedToolchain(findRealToolchain);
+  private pendingReload?: { fresh: boolean };
+  private readonly subscription: { dispose(): void };
 
-  constructor(private readonly store: Store, private readonly log: vscode.LogOutputChannel) {}
+  constructor(private readonly store: Store, private readonly log: vscode.LogOutputChannel) {
+    // A reload asked for during a build runs when the build ends.
+    this.subscription = store.onDidChange(s => {
+      if (!this.pendingReload || s.build.status === 'running') return;
+      const { fresh } = this.pendingReload;
+      this.pendingReload = undefined;
+      void this.reload(fresh);
+    });
+  }
 
-  /** Reloads the workspace; `fresh` also forgets the cached Visual Studio lookup (the Reload command). */
+  /**
+   * Reloads the workspace; `fresh` also forgets the cached Visual Studio lookup (the Reload command). During a build
+   * the reload waits: the solution, configuration and toolchain cannot change under a running build (spec 6).
+   */
   async reload(fresh = false): Promise<void> {
+    if (this.store.state.build.status === 'running') {
+      this.pendingReload = { fresh: fresh || (this.pendingReload?.fresh ?? false) };
+      this.log.info('Reload deferred until the build ends.');
+      return;
+    }
     if (fresh) this.toolchain.clear();
     const generation = ++this.generation;
     try {
@@ -32,8 +50,14 @@ export class Controller {
       for (const p of state.problems) (p.severity === 'error' ? this.log.error : this.log.warn).call(this.log, p.message);
     } catch (e) {
       this.log.error(`Loading the workspace failed: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
-      if (generation === this.generation) this.store.set(failedState('Loading the workspace failed. See the log for details.'));
+      if (generation === this.generation) {
+        this.store.set({ ...failedState('Loading the workspace failed. See the log for details.'), build: this.store.state.build });
+      }
     }
+  }
+
+  dispose(): void {
+    this.subscription.dispose();
   }
 
   settingsFolder(): string | undefined {

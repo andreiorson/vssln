@@ -153,6 +153,18 @@ test('a stopped build says so', async () => {
   expect(written).toContain('Build stopped.');
 });
 
+test('onStarted is called once for a started build and never for a refused one', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const { runner } = fakeRunner('msbuild/build-incremental.log', 0);
+  let started = 0;
+  await runBuild({ ...deps(store, runner, []), onStarted: () => started++ }, { action: 'Build' });
+  expect(started).toBe(1);
+  store.set(readyState({ toolchain: undefined }));
+  await runBuild({ ...deps(store, runner, []), onStarted: () => started++ }, { action: 'Build' });
+  expect(started).toBe(1);
+});
+
 test('a build requested while the solution loads says so', async () => {
   const store = new Store();
   store.set({ ...initialState, phase: 'loading' });

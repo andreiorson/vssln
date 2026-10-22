@@ -21,12 +21,13 @@ Tracking: https://claude.ai/artifact/ALsMZ1NbWk1xEoUUAd158T (VS-14 is the phase;
 - Errors: `6>D:\…\vector.cpp(4,1): error C1189: #error:  "…" [D:\…\Core\Math\Math.vcxproj]` — the project path is the bracketed suffix. After `Build FAILED.` / `Build succeeded.` MSBuild repeats every diagnostic without the `N>` prefix (summary); those must not be counted twice.
 - Single project through the solution: `-t:Graphics\Render`, `-t:Graphics\Render:Rebuild`, `-t:Core\Math:Clean` work and build dependencies; lines for `*.vcxproj.metaproj` appear and are ignored.
 - Projects without `Build.0` (`Missing`) and unmapped ones (`Legacy`) are not started; `Release|x64` prints `warning MSB4121` for `Legacy`.
+- (Final review) `DOTNET_CLI_UI_LANGUAGE=ru-RU` makes MSBuild print Russian (`Сборка начата`, `Ошибок: 0`); without the variable the console is in the OEM code page and non-ASCII paths arrive as `?`. Linker diagnostics have no source position (`LINK : error LNK2001: … [<project>]`), so they need their own problem matcher, listed before `$msCompile` (which also accepts position-less lines and files them under "LINK"). VS Code saves dirty editors before every task (`task.saveBeforeRun`), so the extension does not save them itself.
 
 ## Global Constraints
 
 - Everything from the phase 1 plan's Global Constraints still holds (no machine values in code, pure modules do not import `vscode`, no shell for child processes).
 - MSBuild arguments always include: the `.sln` path, `-t:<target>`, `-m`, `-nologo`, `-nr:false`, `-v:normal`, `-p:Configuration=<c>`, `-p:Platform=<p>`, `-p:DevEnvDir=<dir>` (when known), the `msbuild.properties` of `vssln.json` as `-p:K=V` in key order, and a file logger `-flp:LogFile=<log>;Verbosity=normal;Encoding=UTF-8` with `-fl`.
-- The MSBuild process environment is `process.env` + the expanded `environment` of `vssln.json` + `VSLANG=1033` (English tool output: the parser depends on English MSBuild messages, and localized Visual Studio installs exist).
+- The MSBuild process environment is `process.env` (without `ELECTRON_RUN_AS_NODE` and `VSCODE_*`) + the expanded `environment` of `vssln.json` (names case-insensitive) + `DOTNET_CLI_UI_LANGUAGE=en-US` and `VSLANG=1033` (English tool output: the parser depends on English MSBuild messages). Corrected after the final review: MSBuild 18 ignores `VSLANG` and takes its UI language only from `DOTNET_CLI_UI_LANGUAGE` (or the Windows UI language), which also switches its console to UTF-8; `VSLANG` still matters for `cl.exe` and `link.exe`.
 - Only one build at a time. While a build runs: solution, configuration and startup project cannot be changed; Build/Rebuild/Clean are replaced by Stop.
 - Clean and Rebuild ask for a modal confirmation (user decision 2026-10-22). Build does not.
 - Dirty editors are saved before a build unless `build.saveBeforeBuild` is `false`.

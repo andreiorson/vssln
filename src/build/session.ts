@@ -15,6 +15,8 @@ export interface SessionDeps {
   env: Record<string, string | undefined>;
   /** Terminal sink for the lines the user sees. */
   write(line: string): void;
+  /** Called once, when the build has really started (not for a refused request). */
+  onStarted?(): void;
 }
 
 export type SessionResult = { started: false; reason: string } | { started: true; outcome: BuildState };
@@ -69,6 +71,7 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
 
   deps.write(`${request.action} ${request.project ? request.project.name : path.win32.basename(sln.path)} (${config.name})`);
   deps.store.update(st => ({ ...st, build: startBuild(request, expected, logFile, deps.now()) }));
+  deps.onStarted?.();
 
   const parser = new OutputParser();
   let result: { exitCode: number | null; cancelled: boolean } = { exitCode: null, cancelled: false };

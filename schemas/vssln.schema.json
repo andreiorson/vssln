@@ -45,7 +45,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "saveBeforeBuild": { "type": "boolean", "default": true, "description": "Save dirty editors before a build." },
         "buildBeforeDebug": { "type": "boolean", "default": true, "description": "Build the project before starting it." }
       }
     },

@@ -115,7 +115,6 @@ The panel writes selections into the file with `jsonc-parser` edits, so comments
   "environment": { "ENGINE_SDK": "${workspaceFolder}/sdk" },
 
   "build": {
-    "saveBeforeBuild": true,
     "buildBeforeDebug": true
   },
 
@@ -157,7 +156,7 @@ Every build action is a VS Code task produced by a `TaskProvider` with `CustomEx
 - Solution: `MSBuild.exe <sln> -t:Build|Rebuild|Clean -p:Configuration=<c> -p:Platform=<p> -p:DevEnvDir=<dir> -m -nologo`, a file logger, extra properties from `msbuild.properties`, environment from `environment`. Spawned from Node with an argument array, no shell (brief, section 13).
 - Single project: the same command on the `.sln` with a solution target, `-t:<Folder\Path\Project>` or `-t:<Folder\Path\Project>:Rebuild|Clean`, so the solution's configuration mapping and project dependencies apply as in Visual Studio. Target names follow MSBuild's solution target naming (characters such as `.` replaced by `_`).
 - Progress: parsed from MSBuild console output (project started, project finished, errors, warnings) into per-project build states. This format is the main risk of this part and is verified first against a real solution; fallback is to show only the final result and the error list.
-- Before a build, dirty editors are saved (`build.saveBeforeBuild`). Clean and Rebuild ask for a modal confirmation. Stop kills the whole process tree (`taskkill /t /f`).
+- Dirty editors are saved by VS Code before every task (its `task.saveBeforeRun` setting). Clean and Rebuild ask for a modal confirmation. Stop kills the whole process tree (`taskkill /t /f`).
 - Mutual exclusion: a build pauses the IntelliSense computation and resumes it afterwards; the solution and configuration cannot be changed during a build; only one build runs at a time.
 
 ## 7. Run and debug

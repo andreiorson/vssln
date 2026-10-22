@@ -241,22 +241,22 @@
         },
         {
           "command": "vssln.buildProject",
-          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/ && !vssln.building",
           "group": "inline"
         },
         {
           "command": "vssln.buildProject",
-          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/ && !vssln.building",
           "group": "0_build@1"
         },
         {
           "command": "vssln.rebuildProject",
-          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/ && !vssln.building",
           "group": "0_build@2"
         },
         {
           "command": "vssln.cleanProject",
-          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/ && !vssln.building",
           "group": "0_build@3"
         }
       ],
@@ -311,6 +311,22 @@
             "type": "string",
             "description": "Project name as in the .sln; the whole solution when omitted."
           }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "vssln-nolocation",
+        "owner": "vssln",
+        "source": "MSBuild",
+        "fileLocation": "absolute",
+        "pattern": {
+          "regexp": "^(?!.*\\(\\d+(?:,\\d+)*\\)\\s*:)\\s*(?:\\d+(?::\\d+)?>)?(.*?)\\s*:\\s*(?:[A-Za-z][A-Za-z ]*?\\s)?(?:fatal\\s+)?(error|warning)(?:\\s+([A-Za-z]+\\d+))?\\s*:\\s*(.*?)\\s+\\[([^\\]]+)\\]$",
+          "kind": "file",
+          "file": 5,
+          "severity": 2,
+          "code": 3,
+          "message": 4
         }
       }
     ]
