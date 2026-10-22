@@ -67,6 +67,16 @@ test('project results, the final result and start failures', () => {
   expect(tokens('The build failed to run: boom')).toEqual([{ scope: 'token.error-token', text: 'The build failed to run: boom' }]);
 });
 
+test('numbered project lines: the header is blue, results keep their colours, progress stays plain', () => {
+  const header = '2>------ Rebuild All started: Project: Render, Configuration: Release x64 ------';
+  expect(tokens(header)).toEqual([{ scope: 'token.info-token', text: header }]);
+  expect(tokens('3>Math: FAILED')).toEqual([{ scope: 'token.error-token', text: '3>Math: FAILED' }]);
+  expect(tokens('12>Platform: succeeded')).toEqual([{ scope: 'markup.inserted', text: '12>Platform: succeeded' }]);
+  expect(tokens('3>C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]')).toEqual([{ scope: 'token.error-token', text: 'error C1189' }]);
+  expect(tokens('2>render.cpp')).toEqual([]);
+  expect(tokens('2>Render.vcxproj -> C:\\out\\Render.dll')).toEqual([]);
+});
+
 test('summary counts and ordinary lines stay plain', () => {
   expect(tokens('    0 Error(s)')).toEqual([]);
   expect(tokens('    1 Warning(s)')).toEqual([]);

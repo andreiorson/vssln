@@ -66,8 +66,10 @@ test('a failed rebuild ends in the store with Math failed', async () => {
   expect(b.projects.get(guid('Math'))).toMatchObject({ status: 'failed', errors: 1 });
   expect(b.logFile).toBe('C:\\logs\\build.log');
   expect(written[0]).toBe('Rebuild Engine.sln (Release|x64)');
-  expect(written).toContain('Math: FAILED');
-  expect(written.some(l => l.includes('error C1189'))).toBe(true);
+  // Visual Studio-style output: numbered projects, headers with the project's configuration.
+  expect(written).toContainEqual(expect.stringMatching(/^\d+>Math: FAILED$/));
+  expect(written).toContainEqual(expect.stringMatching(/^\d+>------ Rebuild All started: Project: Math, Configuration: Release x64 ------$/));
+  expect(written.some(l => /^\d+>.*error C1189/.test(l))).toBe(true);
   expect(written.at(-1)).toBe('Build log: C:\\logs\\build.log');
 });
 
@@ -103,9 +105,9 @@ test('a Clean call during a Rebuild is not reported as the project succeeding', 
   const { runner } = fakeRunner('msbuild/rebuild-failed.log', 1);
   const written: string[] = [];
   await runBuild(deps(store, runner, written), { action: 'Rebuild' });
-  expect(written).not.toContain('Render: succeeded');
-  expect(written).toContain('Platform: succeeded');
-  expect(written).toContain('Math: FAILED');
+  expect(written.filter(l => l.endsWith('>Render: succeeded'))).toEqual([]);
+  expect(written).toContainEqual(expect.stringMatching(/^\d+>Platform: succeeded$/));
+  expect(written).toContainEqual(expect.stringMatching(/^\d+>Math: FAILED$/));
 });
 
 test('an exception from the runner still finishes the build', async () => {

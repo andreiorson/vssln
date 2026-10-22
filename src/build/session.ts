@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { projectConfigFor } from '../solution/slnParser';
 import { applyBuildEvent, BuildState, counts, expectedProjects, finishBuild, startBuild } from '../state/build';
 import { Store } from '../state/store';
 import { samePath } from '../util/paths';
@@ -55,7 +56,13 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   deps.onStarted?.();
   deps.write(`${request.action} ${request.project ? request.project.name : path.win32.basename(sln.path)} (${config.name})`);
 
-  const parser = new OutputParser();
+  const parser = new OutputParser({
+    configurationOf: projectPath => {
+      const project = sln.projects.find(p => samePath(p.absPath, projectPath));
+      const mapping = project && projectConfigFor(sln, project.guid, config.name);
+      return mapping ? `${mapping.configuration} ${mapping.platform}` : undefined;
+    },
+  });
   let result: { exitCode: number | null; cancelled: boolean } = { exitCode: null, cancelled: false };
   try {
     result = await deps.runner.run(
@@ -68,7 +75,8 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
         for (const e of parsed.events) {
           if (e.kind === 'diagnostic') deps.onDiagnostic?.(e);
           if (e.kind === 'projectFinished' && counts(request.action, e.target)) {
-            deps.write(`${path.win32.basename(e.path).replace(/\.vcxproj$/i, '')}: ${e.failed ? 'FAILED' : 'succeeded'}`);
+            const n = parser.numberOf(e.path);
+            deps.write(`${n === undefined ? '' : `${n}>`}${path.win32.basename(e.path).replace(/\.vcxproj$/i, '')}: ${e.failed ? 'FAILED' : 'succeeded'}`);
           }
         }
         if (parsed.events.length === 0) return;

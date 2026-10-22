@@ -45,7 +45,7 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 ## Build
 
 - [ ] The Status view title shows Build, Rebuild and Clean buttons without opening a menu; Open settings, Reload solution and Show log are in the `…` menu.
-- [ ] Build: a Build row appears with `done/total · m:ss` and a blue spinner; projects show `waiting`, `building` (blue spinner), `built · Ns` (green icon); the `VS Solution: Build` Output channel opens with a short colored log (`Math: succeeded` in green, errors in red, `Build log: …`); no terminal is created; the status bar shows `Building n/m`, then a green `Built m:ss`.
+- [ ] Build: a Build row appears with `done/total · m:ss` and a blue spinner; projects show `waiting`, `building` (blue spinner), `built · Ns` (green icon); the `VS Solution: Build` Output channel opens with the build's progress as Visual Studio shows it: numbered projects with a blue `N>------ Build started: Project: Math, Configuration: Release x64 ------` header, the compiled files (`N>vector.cpp`), linker messages and `N>Math.vcxproj -> …`, `N>Math: succeeded` in green, errors in red, the MSBuild summary and `Build log: …`; no target names (`ClCompile:`), cl/link command lines or `.tlog` bookkeeping; no terminal is created; the status bar shows `Building n/m`, then a green `Built m:ss`.
 - [ ] While building, the title shows only Stop, the solution and configuration rows say `locked during build`, and changing the configuration is refused with a message.
 - [ ] Stop during a Rebuild: the build ends as `stopped`, no MSBuild, cl or link process remains in Task Manager.
 - [ ] Rebuild and Clean ask for confirmation; Cancel does nothing.

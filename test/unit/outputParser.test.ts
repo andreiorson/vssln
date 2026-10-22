@@ -90,13 +90,46 @@ test('ordinary messages that mention errors are not diagnostics', () => {
 });
 
 test('display lines', () => {
-  const p = new OutputParser();
+  const p = new OutputParser({ configurationOf: path => (path.endsWith('Math.vcxproj') ? 'Release x64' : undefined) });
   // Finish lines are shown by the session, which knows whether the target counts for the build.
   expect(p.push('     6>Done Building Project "C:\\a\\Math.vcxproj" (Rebuild target(s)) -- FAILED.').display).toBeUndefined();
+  // Lines of no known project carry no number.
   expect(p.push('  Game.vcxproj -> C:\\out\\Game.exe').display).toBe('Game.vcxproj -> C:\\out\\Game.exe');
-  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Math.vcxproj" (6) on node 7 (Rebuild target(s)).').display).toBeUndefined();
-  expect(p.push('     6>C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]').display).toBe('C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]');
-  expect(p.push('  ClCompile:').display).toBeUndefined();
+  // A project that starts real work gets the next number and a header, as in Visual Studio.
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Math.vcxproj" (6) on node 7 (Rebuild target(s)).').display)
+    .toBe('1>------ Rebuild All started: Project: Math, Configuration: Release x64 ------');
+  expect(p.push('     6>C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]').display).toBe('1>C:\\a\\v.cpp(4,1): error C1189: #error: boom [C:\\a\\Math.vcxproj]');
+  // Unprefixed lines belong to the project of the last prefix.
+  expect(p.push('         vector.cpp').display).toBe('1>vector.cpp');
+  expect(p.push('       ClCompile:').display).toBeUndefined();
+  expect(p.numberOf('C:\\a\\math.vcxproj')).toBe(1);
+  // A second request for the same instance (5:2 after 5) is no new project.
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Math.vcxproj" (6:2) on node 7 (Build target(s)).').display).toBeUndefined();
+  // Headers for the other actions.
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Game.vcxproj" (7) on node 7 (default targets).').display).toBe('2>------ Build started: Project: Game ------');
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Tool.vcxproj" (8) on node 7 (Clean target(s)).').display).toBe('3>------ Clean started: Project: Tool ------');
+});
+
+test('the output reads like Visual Studio: progress kept, MSBuild bookkeeping hidden', () => {
+  const parser = new OutputParser({ configurationOf: () => 'Release x64' });
+  const display = readFixture('msbuild/project-rebuild.log').split(/\r?\n/).flatMap(l => parser.push(l).display ?? []);
+  expect(display).toEqual(expect.arrayContaining([
+    '1>------ Rebuild All started: Project: Shaders, Configuration: Release x64 ------',
+    '1>Generating shaders.h',
+    '2>------ Rebuild All started: Project: Render, Configuration: Release x64 ------',
+    '3>------ Build started: Project: Math, Configuration: Release x64 ------',
+    '3>vector.cpp',
+    '3>matrix.cpp',
+    `3>Math.vcxproj -> ${E}out\\x64\\Release\\Math.lib`,
+    '2>render.cpp',
+    `2>Creating library ${E}out\\x64\\Release\\Render.lib and object ${E}out\\x64\\Release\\Render.exp`,
+    '2>Generating code',
+    `2>Render.vcxproj -> ${E}out\\x64\\Release\\Render.dll`,
+    'Build succeeded.',
+  ]));
+  const hidden = /CL\.exe|Lib\.exe|link\.exe|Touching|Deleting file|Creating "|Structured output|Adding module source|Reading library manifest|Building solution configuration|is not selected for building|\.obj$|^\d*>?[A-Za-z_]\w*:$|Build started \d/i;
+  expect(display.filter(l => hidden.test(l))).toEqual([]);
+  expect(display.filter(l => l.trim() === '')).toEqual([]);
 });
 
 test('the final summary is displayed but its diagnostics are not counted again', () => {
