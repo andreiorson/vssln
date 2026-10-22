@@ -2,6 +2,7 @@ import { VsslnSettings } from '../settings/settings';
 import { VcxprojScan } from '../solution/projectScan';
 import { ParsedSolution, SolutionConfig } from '../solution/slnParser';
 import { VsInstance } from '../toolchain/vswhere';
+import { BuildState, idleBuild } from './build';
 
 export interface Problem {
   severity: 'error' | 'warning';
@@ -29,6 +30,7 @@ export interface AppState {
   settings: VsslnSettings;
   settingsSyntaxOk: boolean;
   problems: Problem[];
+  build: BuildState;
 }
 
 export const initialState: AppState = {
@@ -38,6 +40,7 @@ export const initialState: AppState = {
   settings: {},
   settingsSyntaxOk: true,
   problems: [],
+  build: idleBuild,
 };
 
 /** State after loading threw: nothing to show except why, with a way to the log. */
@@ -51,6 +54,10 @@ export class Store {
 
   get state(): AppState {
     return this.current;
+  }
+
+  update(change: (s: AppState) => AppState): void {
+    this.set(change(this.current));
   }
 
   set(next: AppState): void {

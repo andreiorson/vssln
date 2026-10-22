@@ -57,7 +57,15 @@ test('reference calls with other targets do not count', () => {
 
 test('compound instance ids on finish lines', () => {
   expect(new OutputParser().push('5:2>Done Building Project "C:\\a\\B.vcxproj" (default targets).').events)
-    .toEqual([{ kind: 'projectFinished', path: 'C:\\a\\B.vcxproj', failed: false }]);
+    .toEqual([{ kind: 'projectFinished', path: 'C:\\a\\B.vcxproj', target: 'Build', failed: false }]);
+});
+
+test('events carry their target', () => {
+  const p = new OutputParser();
+  expect(p.push('5>Project "C:\\a\\G.vcxproj" (5) is building "C:\\a\\R.vcxproj" (12) on node 1 (Clean target(s)).').events)
+    .toEqual([{ kind: 'projectStarted', path: 'C:\\a\\R.vcxproj', target: 'Clean' }]);
+  expect(p.push('6>Done Building Project "C:\\a\\M.vcxproj" (Rebuild target(s)) -- FAILED.').events)
+    .toEqual([{ kind: 'projectFinished', path: 'C:\\a\\M.vcxproj', target: 'Rebuild', failed: true }]);
 });
 
 test('display lines', () => {

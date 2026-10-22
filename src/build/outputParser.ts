@@ -1,8 +1,11 @@
 import * as path from 'path';
 
+/** "default targets" is reported as Build. */
+export type WorkTarget = 'Build' | 'Rebuild' | 'Clean';
+
 export type BuildEvent =
-  | { kind: 'projectStarted'; path: string }
-  | { kind: 'projectFinished'; path: string; failed: boolean }
+  | { kind: 'projectStarted'; path: string; target: WorkTarget }
+  | { kind: 'projectFinished'; path: string; target: WorkTarget; failed: boolean }
   | { kind: 'diagnostic'; severity: 'error' | 'warning'; projectPath?: string; text: string };
 
 export interface ParsedLine {
@@ -24,6 +27,12 @@ function isProject(p: string): boolean {
   return /\.vcxproj$/i.test(p);
 }
 
+function workTarget(targets: string): WorkTarget | undefined {
+  const m = WORK_TARGETS.exec(targets);
+  if (!m) return undefined;
+  return (m[2] as WorkTarget | undefined) ?? 'Build';
+}
+
 /** Reads MSBuild "normal" console output line by line (English messages: the build runs with VSLANG=1033). */
 export class OutputParser {
   private inSummary = false;
@@ -40,16 +49,18 @@ export class OutputParser {
     const started = STARTED.exec(line);
     if (started) {
       const [, projectPath, targets] = started;
-      return { events: isProject(projectPath) && WORK_TARGETS.test(targets) ? [{ kind: 'projectStarted', path: projectPath }] : [] };
+      const target = workTarget(targets);
+      return { events: isProject(projectPath) && target ? [{ kind: 'projectStarted', path: projectPath, target }] : [] };
     }
 
     const finished = FINISHED.exec(line);
     if (finished) {
       const [, projectPath, targets, failed] = finished;
-      if (!isProject(projectPath) || !WORK_TARGETS.test(targets)) return { events: [] };
+      const target = workTarget(targets);
+      if (!isProject(projectPath) || !target) return { events: [] };
       const name = path.win32.basename(projectPath).replace(/\.vcxproj$/i, '');
       return {
-        events: [{ kind: 'projectFinished', path: projectPath, failed: failed !== undefined }],
+        events: [{ kind: 'projectFinished', path: projectPath, target, failed: failed !== undefined }],
         display: `${name}: ${failed ? 'FAILED' : 'succeeded'}`,
       };
     }

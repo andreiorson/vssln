@@ -8,6 +8,19 @@ test('initial state is loading with empty collections', () => {
   expect(initialState.settingsSyntaxOk).toBe(true);
 });
 
+test('initial build is idle', () => {
+  expect(initialState.build.status).toBe('idle');
+});
+
+test('update derives the next state from the current one', () => {
+  const store = new Store();
+  const seen: string[] = [];
+  store.onDidChange(s => seen.push(s.build.status));
+  store.update(s => ({ ...s, build: { ...s.build, status: 'running' } }));
+  expect(store.state.build.status).toBe('running');
+  expect(seen).toEqual(['running']);
+});
+
 test('store notifies listeners and stops after dispose', () => {
   const store = new Store();
   const seen: string[] = [];
