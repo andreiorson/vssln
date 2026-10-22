@@ -2,6 +2,22 @@
 
 All notable changes to the VS Solution extension. Versions follow the development phases; the package version goes up with every package build.
 
+## 0.5.0 — 2026-10-23
+
+### Added
+
+- **Build in waves.** Build and Rebuild of the solution run MSBuild once per level of the dependency graph (`.sln` project dependencies and `ProjectReference`s), each on a generated solution filter, so a project that imports a file another project produces (for example conan's `conandeps.props`) is evaluated only after that project has built. Before, MSBuild evaluated every project up front and failed with `MSB4019` on a clean checkout.
+  - The output shows `Wave i/n: …` before each run, keeps one project numbering and ends with one summary.
+  - When a project fails, the projects that depend on it are not built and say why; the others go on.
+  - A dependency cycle, or MSBuild older than 16.7 (Visual Studio 2019 16.7), falls back to one run with a message; `"build": { "waves": false }` in `vssln.json` turns waves off.
+- The sample solution has a producer project (`Tools/Deps`) whose generated sheet `Platform` imports.
+
+### Changed
+
+- Build results and the output follow every project type of the solution (utility and other `*proj` projects), not only C++ projects.
+- IntelliSense tries again a project that could not be read because an imported sheet was missing (`MSB4019`) once property sheets change, for example after a build wrote it.
+- The side bar icon is the Visual Studio mark.
+
 ## 0.4.0 — 2026-10-22
 
 ### Added
