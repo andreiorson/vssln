@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { pathKey } from '../util/paths';
 
 /**
  * An MSBuild diagnostic line: "<origin> : [subcategory] [fatal] error|warning [CODE] : <text> [<project>]", e.g.
@@ -90,7 +91,7 @@ export class ProblemsBuffer {
   /** True when the diagnostic is new and has a file. */
   add(d: DiagnosticDetails): boolean {
     if (!d.file) return false;
-    const fileKey = path.win32.normalize(d.file).toLowerCase();
+    const fileKey = pathKey(d.file);
     const key = [fileKey, d.line, d.column, d.endLine, d.endColumn, d.severity, d.code, d.message].join('\u0000');
     if (this.seen.has(key)) return false;
     this.seen.add(key);

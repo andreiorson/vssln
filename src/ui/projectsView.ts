@@ -18,6 +18,8 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
   private filter = '';
   private filtered?: { roots: TreeNode[]; query: string; result: FilterResult };
   private parents?: { roots: TreeNode[]; map: Map<TreeNode, TreeNode> };
+  /** Parents of every folder and project node handed out, kept for reveals that resolve after the tree changed. */
+  private readonly earlierParents = new WeakMap<TreeNode, TreeNode>();
 
   constructor(private readonly store: Store, private readonly registry: ChildrenRegistry) {
     this.subscription = store.onDidChange(coalesce(() => this.changed.fire(), 50));
@@ -73,12 +75,15 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
 
   /** Parents of the nodes the view shows now (filtered folders are copies), for TreeView.reveal. */
   getParent(node: TreeNode): TreeNode | undefined {
-    return this.registry.parentOf(node) ?? this.parentMap().get(node);
+    return this.registry.parentOf(node) ?? this.parentMap().get(node) ?? this.earlierParents.get(node);
   }
 
   private parentMap(): Map<TreeNode, TreeNode> {
     const roots = this.result().roots;
-    if (this.parents?.roots !== roots) this.parents = { roots, map: parentsOf(roots) };
+    if (this.parents?.roots !== roots) {
+      this.parents = { roots, map: parentsOf(roots) };
+      for (const [child, parent] of this.parents.map) this.earlierParents.set(child, parent);
+    }
     return this.parents.map;
   }
 

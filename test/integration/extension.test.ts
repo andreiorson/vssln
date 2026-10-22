@@ -127,6 +127,7 @@ suite('activation', () => {
     await waitFor(() => api.getState().phase === 'ready', 10000);
     const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
     const { projects: view, projectsTree: tree } = api.views;
+    const vectorCpp = path.join(folder, 'Core', 'Math', 'vector.cpp');
     try {
       await vscode.window.showTextDocument(vscode.Uri.file(path.join(folder, 'Game', 'main.cpp')));
       await vscode.commands.executeCommand('vssln.syncActiveFile');
@@ -139,9 +140,26 @@ suite('activation', () => {
       view.setFilter('math');
       await vscode.commands.executeCommand('vssln.syncActiveFile');
       assert.strictEqual(view.filterText, 'math');
+      assert.ok(tree.selection.every(n => n.label === 'main.cpp'), tree.selection.map(n => n.label).join());
+
+      // Under the filter, Math sits in a copy of its Core folder: the parent chain must be the nodes the view shows.
+      await writeRetrying(vectorCpp, '// created by a test\n');
+      await vscode.window.showTextDocument(vscode.Uri.file(vectorCpp));
+      await vscode.commands.executeCommand('vssln.syncActiveFile');
+      await waitFor(() => tree.selection[0]?.label === 'vector.cpp', 5000);
+      const math = view.getParent(tree.selection[0])!;
+      assert.strictEqual(math.label, 'Math');
+      assert.strictEqual(view.getParent(math), view.getChildren().find(n => n.label === 'Core'));
+      view.setFilter('');
+
+      // A diff whose modified side is not a file: the other side's file is used.
+      await vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(path.join(folder, 'Game', 'main.cpp')), vscode.Uri.parse('untitled:scratch.cpp'), 'diff');
+      await vscode.commands.executeCommand('vssln.syncActiveFile');
+      await waitFor(() => tree.selection[0]?.label === 'main.cpp', 5000);
     } finally {
       view.setFilter('');
       await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+      fs.rmSync(vectorCpp, { force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
 

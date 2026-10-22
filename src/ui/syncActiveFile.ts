@@ -5,13 +5,25 @@ import { TreeNode } from '../solution/model';
 import { Store } from '../state/store';
 import { ProjectsView } from './projectsView';
 
-/** The file of the active editor, or of the active tab when that is not a text editor (an image, a diff). */
-function activeFile(): string | undefined {
+/** The URIs a tab shows, the one to prefer first (a diff's modified side, a merge editor's result). */
+function tabUris(input: unknown): vscode.Uri[] {
+  if (input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom || input instanceof vscode.TabInputNotebook) return [input.uri];
+  if (input instanceof vscode.TabInputTextDiff || input instanceof vscode.TabInputNotebookDiff) return [input.modified, input.original];
+  // The merge editor's tab input is not in the public API; it carries the file being merged as `result`.
+  const merge = input as { result?: unknown } | undefined;
+  return merge?.result instanceof vscode.Uri ? [merge.result] : [];
+}
+
+/**
+ * The file on disk of the active editor, or of the active tab when that is not a text editor (an image, a diff, a merge
+ * editor); `tab` when a tab is open but shows no file on disk.
+ */
+function activeFile(): string | 'tab' | undefined {
   const editorUri = vscode.window.activeTextEditor?.document.uri;
   if (editorUri?.scheme === 'file') return editorUri.fsPath;
-  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-  const uri = input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom ? input.uri : input instanceof vscode.TabInputTextDiff ? input.modified : undefined;
-  return uri?.scheme === 'file' ? uri.fsPath : undefined;
+  const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+  if (!tab) return undefined;
+  return tabUris(tab.input).find(uri => uri.scheme === 'file')?.fsPath ?? 'tab';
 }
 
 /** Sync with Active Document, as in Visual Studio: selects the active editor's file in the Projects tree. */
@@ -29,8 +41,8 @@ export function registerSyncActiveFile(store: Store, view: ProjectsView, treeVie
   const sync = async (): Promise<void> => {
     const s = store.state;
     const file = activeFile();
-    if (!file) {
-      void inform('No file is open.');
+    if (!file || file === 'tab') {
+      void inform(file ? 'The active editor is not a file on disk.' : 'No file is open.');
       return;
     }
     if (!s.solution) return;

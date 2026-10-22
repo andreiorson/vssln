@@ -1,7 +1,12 @@
 import * as path from 'path';
 
+/** A Windows path in one spelling: normalized separators and dot segments, lower case. */
+export function pathKey(p: string): string {
+  return path.win32.normalize(p).toLowerCase();
+}
+
 export function samePath(a: string, b: string): boolean {
-  return path.win32.normalize(a).toLowerCase() === path.win32.normalize(b).toLowerCase();
+  return pathKey(a) === pathKey(b);
 }
 
 export function isInside(folder: string, p: string): boolean {

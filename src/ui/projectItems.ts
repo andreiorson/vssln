@@ -3,17 +3,17 @@ import { itemsTree } from '../solution/itemsTree';
 import { ChildrenProvider, TreeNode } from '../solution/model';
 import { ProjectItems } from '../solution/projectItems';
 import { Store } from '../state/store';
+import { pathKey } from '../util/paths';
 
 interface Built {
   nodes: TreeNode[];
-  /** Each filter's and file's parent: a filter, or the project node the nodes were given for. */
-  parents: Map<TreeNode, TreeNode>;
   /** Lower-case paths of the project's files and of every folder above them, to match file events against. */
   paths: Set<string>;
 }
 
+/** Folder events may carry a trailing separator. */
 function key(p: string): string {
-  return path.win32.normalize(p).replace(/\\+$/, '').toLowerCase();
+  return pathKey(p).replace(/\\+$/, '');
 }
 
 /** The files' paths and their folders: a folder created or deleted in one event affects the files inside it. */
@@ -41,6 +41,11 @@ export class ProjectItemsProvider implements ChildrenProvider {
   /** Keyed by the loaded ProjectItems object, so a reload, which replaces them, starts afresh. */
   private readonly built = new Map<ProjectItems, Built>();
   private readonly listeners = new Set<() => void>();
+  /**
+   * Each filter's and file's parent: a filter, or the project node the nodes were given for. Kept after a collapse or
+   * reload drops the nodes, since a reveal may still be resolving them; their ids lead VS Code to the current nodes.
+   */
+  private readonly parents = new WeakMap<TreeNode, TreeNode>();
 
   constructor(private readonly store: Store, private readonly exists: (p: string) => boolean) {}
 
@@ -68,24 +73,21 @@ export class ProjectItemsProvider implements ChildrenProvider {
     if (!built) {
       this.prune();
       const nodes = itemsTree(node.project!.guid, items, this.exists);
-      const parents = new Map<TreeNode, TreeNode>();
       const visit = (parent: TreeNode, children: TreeNode[]) => {
         for (const child of children) {
-          parents.set(child, parent);
+          this.parents.set(child, parent);
           visit(child, child.children);
         }
       };
       visit(node, nodes);
-      built = { nodes, parents, paths: watchedPaths(items) };
+      built = { nodes, paths: watchedPaths(items) };
       this.built.set(items, built);
     }
     return built.nodes;
   }
 
   parentOf(node: TreeNode): TreeNode | undefined {
-    if (node.kind !== 'filter' && node.kind !== 'file') return undefined;
-    const items = node.projectGuid ? this.store.state.projects.get(node.projectGuid)?.items : undefined;
-    return items ? this.built.get(items)?.parents.get(node) : undefined;
+    return this.parents.get(node);
   }
 
   /** A collapsed project checks its files again when it is expanded next, for files no watcher sees (outside the workspace). */

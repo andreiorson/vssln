@@ -2,7 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { expect, test } from 'vitest';
 import { cachedToolchain, ToolchainResult } from '../../src/toolchain/vswhere';
-import { deletionAffects, isSolutionCandidate } from '../../src/util/paths';
+import { deletionAffects, isSolutionCandidate, pathKey } from '../../src/util/paths';
+
+test('path keys ignore case, separators and dot segments', () => {
+  expect(pathKey('D:/Src/./Game/../Game/Main.CPP')).toBe('d:\\src\\game\\main.cpp');
+  expect(pathKey('d:\\src\\game\\main.cpp')).toBe(pathKey('D:/SRC/GAME/MAIN.cpp'));
+});
 
 test('solution candidates skip dependency and tool folders', () => {
   expect(isSolutionCandidate('C:\\w\\Engine.sln')).toBe(true);

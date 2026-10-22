@@ -92,8 +92,11 @@ test('parents of filters and files lead back to the project node', async () => {
   expect(provider.parentOf(sourceFiles)).toBe(game);
   expect(provider.parentOf(sourceFiles.children.find(n => n.label === 'main.cpp')!)).toBe(sourceFiles);
   expect(provider.parentOf(game)).toBeUndefined();
+  // Nodes handed out keep their parents after a collapse or a reload: a reveal may still be resolving them, and
+  // their ids lead VS Code to the current nodes.
+  provider.collapsed(game);
   store.set(await loadFixtureState());
-  expect(provider.parentOf(sourceFiles)).toBeUndefined();
+  expect(provider.parentOf(sourceFiles)).toBe(game);
 });
 
 test('a reload starts afresh', async () => {

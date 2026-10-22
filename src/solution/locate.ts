@@ -1,10 +1,6 @@
-import * as path from 'path';
 import { AppState } from '../state/store';
+import { pathKey as key } from '../util/paths';
 import { TreeNode } from './model';
-
-function key(p: string): string {
-  return path.win32.normalize(p).toLowerCase();
-}
 
 /** Guids of the projects that list a file: the startup project first when it does, then solution order. */
 export function projectsListing(s: Pick<AppState, 'solution' | 'projects' | 'startupProjectGuid'>, filePath: string): string[] {
