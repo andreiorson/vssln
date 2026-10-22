@@ -26,6 +26,168 @@
           "icon": "media/vssln.svg"
         }
       ]
+    },
+    "views": {
+      "vssln": [
+        {
+          "id": "vssln.status",
+          "name": "Status"
+        },
+        {
+          "id": "vssln.projects",
+          "name": "Projects"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "vssln.projects",
+        "contents": "No solution found in this workspace.\n[Select solution](command:vssln.selectSolution)",
+        "when": "vssln.phase == noSolution"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ".vscode/vssln.json",
+        "url": "./schemas/vssln.schema.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "vssln.selectSolution",
+        "title": "Select solution",
+        "category": "VS Solution",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vssln.selectConfiguration",
+        "title": "Select configuration",
+        "category": "VS Solution",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vssln.selectStartupProject",
+        "title": "Select startup project",
+        "category": "VS Solution",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vssln.setAsStartup",
+        "title": "Set as startup project",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.openSettings",
+        "title": "Open settings",
+        "category": "VS Solution",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "vssln.configureToolchain",
+        "title": "Configure toolchain",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.openProjectFile",
+        "title": "Open project file",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.revealInExplorer",
+        "title": "Reveal in File Explorer",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.copyPath",
+        "title": "Copy path",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.refresh",
+        "title": "Reload solution",
+        "category": "VS Solution",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vssln.showLog",
+        "title": "Show log",
+        "category": "VS Solution",
+        "icon": "$(output)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "vssln.openSettings",
+          "when": "view == vssln.status",
+          "group": "navigation"
+        },
+        {
+          "command": "vssln.refresh",
+          "when": "view == vssln.status",
+          "group": "1_vssln@1"
+        },
+        {
+          "command": "vssln.showLog",
+          "when": "view == vssln.status",
+          "group": "1_vssln@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vssln.selectSolution",
+          "when": "view == vssln.status && viewItem == status.solution",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.selectConfiguration",
+          "when": "view == vssln.status && viewItem == status.configuration",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.selectStartupProject",
+          "when": "view == vssln.status && viewItem == status.startup",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.setAsStartup",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "group": "1_startup"
+        },
+        {
+          "command": "vssln.openProjectFile",
+          "when": "view == vssln.projects && viewItem =~ /^project\\./",
+          "group": "2_file@1"
+        },
+        {
+          "command": "vssln.revealInExplorer",
+          "when": "view == vssln.projects && viewItem =~ /^project\\./",
+          "group": "2_file@2"
+        },
+        {
+          "command": "vssln.copyPath",
+          "when": "view == vssln.projects && viewItem =~ /^project\\./",
+          "group": "2_file@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "vssln.setAsStartup",
+          "when": "false"
+        },
+        {
+          "command": "vssln.openProjectFile",
+          "when": "false"
+        },
+        {
+          "command": "vssln.revealInExplorer",
+          "when": "false"
+        },
+        {
+          "command": "vssln.copyPath",
+          "when": "false"
+        }
+      ]
     }
   },
   "scripts": {

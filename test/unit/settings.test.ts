@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applySelectionEdit, parseSettings } from '../../src/settings/settings';
+import { applySelectionEdit, ensureObjectKey, parseSettings } from '../../src/settings/settings';
 import { SettingsFile, SettingsSyntaxError } from '../../src/settings/settingsFile';
 import { memoryFs, readFixture } from './helpers';
 import schema from '../../schemas/vssln.schema.json';
@@ -39,6 +39,14 @@ test('selection edit keeps comments', () => {
 
 test('selection edit on empty text creates an object', () => {
   expect(JSON.parse(applySelectionEdit('', 'solution', 'src/A.sln'))).toEqual({ solution: 'src/A.sln' });
+});
+
+test('ensureObjectKey adds an empty object once and keeps comments', () => {
+  const out = ensureObjectKey('{\n  // keep\n  "configuration": "Release|x64"\n}', 'toolchain');
+  expect(out).toContain('// keep');
+  expect(parseSettings(out).settings).toEqual({ configuration: 'Release|x64', toolchain: {} });
+  expect(ensureObjectKey(out, 'toolchain')).toBe(out);
+  expect(JSON.parse(ensureObjectKey('', 'toolchain'))).toEqual({ toolchain: {} });
 });
 
 test('writeSelection refuses to overwrite a broken file', async () => {

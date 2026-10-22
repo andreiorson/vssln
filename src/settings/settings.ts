@@ -217,9 +217,18 @@ export function parseSettings(text: string): ParsedSettings {
   return { settings: validate(root, v), syntaxOk: true, problems: v.problems };
 }
 
+const FORMATTING = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: '\n' } };
+
 /** Sets one selection key, keeping comments and formatting of the rest of the file. */
 export function applySelectionEdit(text: string, key: SelectionKey, value: string): string {
   const base = text.trim() === '' ? '{}' : text;
-  const edits = modify(base, [key], value, { formattingOptions: { insertSpaces: true, tabSize: 2, eol: '\n' } });
-  return applyEdits(base, edits);
+  return applyEdits(base, modify(base, [key], value, FORMATTING));
+}
+
+/** Adds `"key": {}` at the top level when the key is absent; otherwise returns the text unchanged. */
+export function ensureObjectKey(text: string, key: string): string {
+  const base = text.trim() === '' ? '{}' : text;
+  const root: unknown = parse(base, [], { allowTrailingComma: true });
+  if (isObject(root) && key in root) return text;
+  return applyEdits(base, modify(base, [key], {}, FORMATTING));
 }
