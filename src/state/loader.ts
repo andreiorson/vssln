@@ -88,6 +88,7 @@ export async function loadWorkspace(deps: LoaderDeps): Promise<AppState> {
   if (!solutionPath || slnText === undefined) return { ...base, phase: 'noSolution' };
 
   const solution = parseSln(slnText, solutionPath);
+  for (const message of solution.warnings) problems.push({ severity: 'warning', message });
   const configuration = resolveConfiguration(settings, solution);
   if (configuration.problem) problems.push({ severity: 'warning', message: configuration.problem, action: 'openSettings' });
 

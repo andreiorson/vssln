@@ -40,6 +40,8 @@ export interface ParsedSolution {
   folders: SlnFolder[];
   configurations: SolutionConfig[];
   mapping: Map<string, Map<string, ProjectConfigMapping>>;
+  /** Problems found while parsing that do not stop it. */
+  warnings: string[];
 }
 
 export const SOLUTION_FOLDER_TYPE = '{2150E333-8FDC-42A3-9474-1A3956D46DE8}';
@@ -63,6 +65,8 @@ export function parseSln(text: string, slnPath: string): ParsedSolution {
   const configurations: SolutionConfig[] = [];
   const mapping = new Map<string, Map<string, ProjectConfigMapping>>();
   const parents = new Map<string, string>();
+  const names = new Map<string, string>();
+  const warnings: string[] = [];
 
   let order = 0;
   let currentProject: SlnProject | undefined;
@@ -79,6 +83,13 @@ export function parseSln(text: string, slnPath: string): ParsedSolution {
       const typeUpper = typeGuid.toUpperCase();
       const guidUpper = guid.toUpperCase();
       currentProject = undefined;
+      const first = names.get(guidUpper);
+      if (first !== undefined) {
+        // A merge or a copied project file can leave two entries with one GUID; tree ids must stay unique.
+        warnings.push(`Project "${name}" has the same GUID ${guidUpper} as "${first}" and is not shown.`);
+        continue;
+      }
+      names.set(guidUpper, name);
       if (typeUpper === SOLUTION_FOLDER_TYPE) {
         folders.push({ guid: guidUpper, name, order: order++ });
       } else {
@@ -153,7 +164,7 @@ export function parseSln(text: string, slnPath: string): ParsedSolution {
   for (const p of projects) p.parentGuid = parents.get(p.guid);
   for (const f of folders) f.parentGuid = parents.get(f.guid);
 
-  return { path: slnPath, dir, projects, folders, configurations, mapping };
+  return { path: slnPath, dir, projects, folders, configurations, mapping, warnings };
 }
 
 export function projectConfigFor(sln: ParsedSolution, projectGuid: string, solutionConfig: string): ProjectConfigMapping | undefined {

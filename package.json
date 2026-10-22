@@ -156,12 +156,12 @@
         },
         {
           "command": "vssln.openProjectFile",
-          "when": "view == vssln.projects && viewItem =~ /^project\\./",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib|inactive)$/",
           "group": "2_file@1"
         },
         {
           "command": "vssln.revealInExplorer",
-          "when": "view == vssln.projects && viewItem =~ /^project\\./",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib|inactive)$/",
           "group": "2_file@2"
         },
         {

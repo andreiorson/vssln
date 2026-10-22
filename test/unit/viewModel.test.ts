@@ -70,7 +70,7 @@ test('folder row', () => {
 
 test('inactive reasons', () => {
   expect(projectRow(node('Legacy'), s)).toMatchObject({ description: 'not in Release|x64', icon: 'circle-slash', inactive: true, contextValue: 'project.inactive' });
-  expect(projectRow(node('Missing'), s)).toMatchObject({ description: 'file not found', inactive: true });
+  expect(projectRow(node('Missing'), s)).toMatchObject({ description: 'file not found', inactive: true, contextValue: 'project.missing' });
   expect(projectRow(node('Docs'), s)).toMatchObject({ description: 'not a C++ project', inactive: true });
 });
 

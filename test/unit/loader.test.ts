@@ -40,6 +40,17 @@ test('msbuildPath is resolved against the workspace folder and expands variables
   expect(withEnv.toolchainOpts).toEqual([{ msbuildPath: 'E:\\VS\\MSBuild.exe' }]);
 });
 
+test('solution warnings become warning problems', async () => {
+  const dup = path.join(WORKSPACE, 'Dup.sln');
+  const CPP = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}';
+  const text = [
+    `Project("${CPP}") = "A", "A.vcxproj", "{00000000-0000-0000-0000-000000000001}"`, 'EndProject',
+    `Project("${CPP}") = "B", "B.vcxproj", "{00000000-0000-0000-0000-000000000001}"`, 'EndProject',
+  ].join('\n');
+  const s = await loadWorkspace(fixtureDeps({ solutions: [dup], files: { [dup]: text } }));
+  expect(s.problems).toContainEqual({ severity: 'warning', message: expect.stringContaining('same GUID') });
+});
+
 test('missing toolchain still loads the tree and reports an actionable error', async () => {
   const s = await loadWorkspace(fixtureDeps({ toolchain: { problem: 'vswhere.exe not found' } }));
   expect(s.phase).toBe('ready');

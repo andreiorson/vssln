@@ -148,7 +148,8 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
       description: status.inactive,
       tooltip: `${project.absPath}\n${status.inactive}`,
       icon: 'circle-slash',
-      contextValue: 'project.inactive',
+      // A missing file cannot be opened or revealed, so its menu differs.
+      contextValue: status.inactive === 'file not found' ? 'project.missing' : 'project.inactive',
       resourceUri,
       inactive: true,
     };

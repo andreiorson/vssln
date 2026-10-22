@@ -38,6 +38,18 @@ test('maps project configurations, Build.0 sets build', () => {
   expect(projectConfigFor(sln, '{44444444-4444-4444-4444-444444444444}', 'Release|x64')).toBeUndefined();
 });
 
+test('a project GUID listed twice keeps the first entry and reports the second', () => {
+  const CPP = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}';
+  const d = parseSln([
+    'Microsoft Visual Studio Solution File, Format Version 12.00',
+    `Project("${CPP}") = "A", "A.vcxproj", "{00000000-0000-0000-0000-000000000001}"`, 'EndProject',
+    `Project("${CPP}") = "B", "B.vcxproj", "{00000000-0000-0000-0000-000000000001}"`, 'EndProject',
+  ].join('\n'), 'C:\\x.sln');
+  expect(d.projects.map(p => p.name)).toEqual(['A']);
+  expect(d.warnings).toEqual(['Project "B" has the same GUID {00000000-0000-0000-0000-000000000001} as "A" and is not shown.']);
+  expect(sln.warnings).toEqual([]);
+});
+
 test('handles dotted config names, lower-case guids, LF', () => {
   const d = parseSln(readFixture('sln/dotted-config.sln'), 'C:\\d\\x.sln');
   expect(d.configurations.map(c => c.name)).toEqual(['Release.Static|x64', 'Debug|x64']);
