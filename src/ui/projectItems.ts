@@ -6,13 +6,34 @@ import { Store } from '../state/store';
 
 interface Built {
   nodes: TreeNode[];
-  /** Lower-case paths of the project's files, to match file events against. */
+  /** Lower-case paths of the project's files and of every folder above them, to match file events against. */
   paths: Set<string>;
 }
 
+function key(p: string): string {
+  return path.win32.normalize(p).replace(/\\+$/, '').toLowerCase();
+}
+
+/** The files' paths and their folders: a folder created or deleted in one event affects the files inside it. */
+function watchedPaths(items: ProjectItems): Set<string> {
+  const paths = new Set<string>();
+  for (const item of items.items) {
+    if (!item.path) continue;
+    let p = key(item.path);
+    while (!paths.has(p)) {
+      paths.add(p);
+      const parent = path.win32.dirname(p);
+      if (parent === p) break;
+      p = parent;
+    }
+  }
+  return paths;
+}
+
 /**
- * Gives C++ project nodes their filters and files. A project's nodes are built when it is first expanded (that is when
- * file existence is checked) and kept until the solution reloads or a file the project lists is created or deleted.
+ * Gives C++ project nodes their filters and files. A project's nodes are built when it is expanded (that is when file
+ * existence is checked) and kept until it is collapsed, the solution reloads, or a file it lists (or a folder above
+ * one) is created or deleted.
  */
 export class ProjectItemsProvider implements ChildrenProvider {
   /** Keyed by the loaded ProjectItems object, so a reload, which replaces them, starts afresh. */
@@ -44,11 +65,16 @@ export class ProjectItemsProvider implements ChildrenProvider {
     let built = this.built.get(items);
     if (!built) {
       this.prune();
-      const paths = new Set(items.items.flatMap(i => (i.path ? [i.path.toLowerCase()] : [])));
-      built = { nodes: itemsTree(node.project!.guid, items, this.exists), paths };
+      built = { nodes: itemsTree(node.project!.guid, items, this.exists), paths: watchedPaths(items) };
       this.built.set(items, built);
     }
     return built.nodes;
+  }
+
+  /** A collapsed project checks its files again when it is expanded next, for files no watcher sees (outside the workspace). */
+  collapsed(node: TreeNode): void {
+    const items = this.itemsOf(node);
+    if (items) this.built.delete(items);
   }
 
   onDidChange(listener: () => void): { dispose(): void } {
@@ -56,17 +82,14 @@ export class ProjectItemsProvider implements ChildrenProvider {
     return { dispose: () => this.listeners.delete(listener) };
   }
 
-  /**
-   * A created or deleted path: refreshes the projects that list it. A deleted folder arrives as one event for the
-   * folder, so `folderMayBeGone` also matches the files inside it.
-   */
-  fileChanged(changed: string, folderMayBeGone = false): void {
-    this.prune();
-    const lower = path.win32.normalize(changed).toLowerCase();
-    const inside = lower.endsWith('\\') ? lower : `${lower}\\`;
+  /** A created or deleted file or folder: refreshes the expanded projects that list it or files inside it. */
+  fileChanged(changed: string): void {
+    // Builds create and delete thousands of files; with nothing expanded there is nothing to look up.
+    if (this.built.size === 0) return;
+    const k = key(changed);
     let hit = false;
     for (const [items, built] of [...this.built]) {
-      if (built.paths.has(lower) || (folderMayBeGone && [...built.paths].some(p => p.startsWith(inside)))) {
+      if (built.paths.has(k)) {
         this.built.delete(items);
         hit = true;
       }

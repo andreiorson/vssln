@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { ChildrenRegistry } from './solution/model';
 import { AppState, Store } from './state/store';
 import { Builds, registerBuildCommands } from './ui/builds';
-import { debounce } from './ui/coalesce';
+import { coalesce, debounce } from './ui/coalesce';
 import { Debugging, registerDebugging } from './ui/debugging';
 import { Controller, registerCommands } from './ui/commands';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
@@ -36,7 +36,8 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
 
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
-  const itemsChanged = items.onDidChange(() => projectsView.refresh());
+  // A checkout touches many files at once: one redraw for the burst.
+  const itemsChanged = items.onDidChange(coalesce(() => projectsView.refresh(), 50));
   const decorations = new ProjectDecorations(store);
   const projectsTree = vscode.window.createTreeView('vssln.projects', { treeDataProvider: projectsView, showCollapseAll: true });
   const reload = debounce(() => void controller.reload(), 300);
@@ -54,7 +55,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   files.onDidCreate(uri => items.fileChanged(uri.fsPath));
   files.onDidDelete(uri => {
     if (deletionAffects(uri.fsPath, store.state)) reload();
-    items.fileChanged(uri.fsPath, true);
+    items.fileChanged(uri.fsPath);
   });
   watchers.push(files);
 
@@ -77,6 +78,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     new StatusBar(store),
     vscode.window.createTreeView('vssln.status', { treeDataProvider: statusView }),
     projectsTree,
+    projectsTree.onDidCollapseElement(e => items.collapsed(e.element)),
     ...registerProjectsFilter(projectsView, projectsTree),
     vscode.window.registerFileDecorationProvider(decorations),
     ...watchers,

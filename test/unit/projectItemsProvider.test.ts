@@ -45,17 +45,43 @@ test('only events for listed files of expanded projects refresh', async () => {
   const gameCpp = store.state.projects.get(game.project!.guid)!.items!.items[1].path!;
 
   provider.fileChanged(gameCpp.replace('game.cpp', 'other.cpp'));
-  provider.fileChanged(gameCpp.replace(/\\src\\game\.cpp$/, ''));
+  // Build output next to the sources: not a file of the project, not a folder holding one.
+  provider.fileChanged(gameCpp.replace(/\\src\\game\.cpp$/, '\\obj\\game.obj'));
+  provider.fileChanged(gameCpp.replace(/\\src\\game\.cpp$/, '\\obj'));
   expect(refreshed()).toBe(0);
 
   provider.fileChanged(gameCpp.toUpperCase());
   expect(refreshed()).toBe(1);
   provider.children(game);
   expect(checked).toHaveLength(6);
+});
 
-  // A deleted folder matches the files inside it.
-  provider.fileChanged(gameCpp.replace(/\\game\.cpp$/, ''), true);
+test('a folder that appears or goes away in one event refreshes the files inside it', async () => {
+  const { provider, refreshed, find, store } = await setup();
+  const game = find('Game');
+  provider.children(game);
+  const src = store.state.projects.get(game.project!.guid)!.items!.items[1].path!.replace(/\\game\.cpp$/, '');
+  provider.fileChanged(src);
+  expect(refreshed()).toBe(1);
+  provider.children(game);
+  provider.fileChanged(`${src}\\`);
   expect(refreshed()).toBe(2);
+});
+
+test('file events before any project was expanded cost nothing and refresh nothing', async () => {
+  const { provider, refreshed, find, store } = await setup();
+  const game = find('Game');
+  provider.fileChanged(store.state.projects.get(game.project!.guid)!.items!.items[1].path!);
+  expect(refreshed()).toBe(0);
+});
+
+test('collapsing a project checks its files again on the next expand', async () => {
+  const { provider, checked, find } = await setup();
+  const game = find('Game');
+  provider.children(game);
+  provider.collapsed(game);
+  provider.children(game);
+  expect(checked).toHaveLength(6);
 });
 
 test('a reload starts afresh', async () => {

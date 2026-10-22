@@ -21,14 +21,31 @@ export interface ItemContext {
 
 /** Item types that are not files, so Solution Explorer does not show them either. */
 const NOT_FILES = new Set(
-  ['ProjectConfiguration', 'ProjectReference', 'Reference', 'Filter', 'ProjectCapability', 'PackageReference', 'ProjectTools', 'Service', 'BuildMacro'].map(t =>
-    t.toLowerCase(),
-  ),
+  [
+    'ProjectConfiguration',
+    'ProjectReference',
+    'Reference',
+    'SDKReference',
+    'COMReference',
+    'COMFileReference',
+    'NativeReference',
+    'Folder',
+    'Filter',
+    'ProjectCapability',
+    'PackageReference',
+    'ProjectTools',
+    'Service',
+    'BuildMacro',
+  ].map(t => t.toLowerCase()),
 );
 
+/** Attributes up to the end of a tag; quoted values may contain `>` (conditions such as '$(X)'>'1'). */
+const ATTRIBUTES = `((?:[^>"']|"[^"]*"|'[^']*')*?)`;
 // The lookbehind skips self-closing <ItemGroup />, which would otherwise run on to the next closing tag.
-const ITEM_GROUP = /<ItemGroup\b[^>]*?(?<!\/)>([\s\S]*?)<\/ItemGroup\s*>/g;
-const ELEMENT = /<([A-Za-z_][\w.-]*)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1\s*>)/g;
+const ITEM_GROUP = new RegExp(`<ItemGroup\\b${ATTRIBUTES}(?<!\\/)>([\\s\\S]*?)<\\/ItemGroup\\s*>`, 'g');
+const ELEMENT = new RegExp(`<([A-Za-z_][\\w.-]*)\\b${ATTRIBUTES}(?:\\/>|>([\\s\\S]*?)<\\/\\1\\s*>)`, 'g');
+/** Comments, and targets: their item groups are computed during a build, Solution Explorer does not show them. */
+const SKIPPED = new RegExp(`<!--[\\s\\S]*?-->|<Target\\b${ATTRIBUTES}(?:\\/>|>[\\s\\S]*?<\\/Target\\s*>)`, 'g');
 const INCLUDE = /\bInclude\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 const FILTER = /<Filter>([^<]*)<\/Filter>/;
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -36,16 +53,17 @@ const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"'
 function decodeXml(text: string): string {
   return text.replace(/&(amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi, (m, name: string) => {
     const lower = name.toLowerCase();
-    if (lower.startsWith('#x')) return String.fromCodePoint(parseInt(lower.slice(2), 16));
-    if (lower.startsWith('#')) return String.fromCodePoint(parseInt(lower.slice(1), 10));
-    return ENTITIES[lower] ?? m;
+    if (!lower.startsWith('#')) return ENTITIES[lower] ?? m;
+    const code = lower.startsWith('#x') ? parseInt(lower.slice(2), 16) : parseInt(lower.slice(1), 10);
+    // A reference to no character is kept as written rather than failing the whole solution load.
+    return code <= 0x10ffff ? String.fromCodePoint(code) : m;
   });
 }
 
 /** Elements with an Include inside the ItemGroups of an MSBuild file, with the include list split. */
 function* includes(xml: string): Generator<{ itemType: string; include: string; body: string }> {
-  for (const group of xml.replace(/<!--[\s\S]*?-->/g, '').matchAll(ITEM_GROUP)) {
-    for (const element of group[1].matchAll(ELEMENT)) {
+  for (const group of xml.replace(SKIPPED, '').matchAll(ITEM_GROUP)) {
+    for (const element of group[2].matchAll(ELEMENT)) {
       const attr = INCLUDE.exec(element[2]);
       if (!attr) continue;
       for (const include of decodeXml(attr[1] ?? attr[2]).split(';')) {
@@ -109,8 +127,11 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
   }
 
   const filterPaths: string[] = [];
+  const seen = new Set<string>();
   const addFilter = (name: string) => {
-    if (!filterPaths.some(f => f.toLowerCase() === name.toLowerCase())) filterPaths.push(name);
+    if (seen.has(name.toLowerCase())) return;
+    seen.add(name.toLowerCase());
+    filterPaths.push(name);
   };
   if (filters && /<\/Project\s*>/.test(filters)) {
     for (const { itemType, include, body } of includes(filters)) {

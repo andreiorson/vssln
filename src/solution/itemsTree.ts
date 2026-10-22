@@ -2,8 +2,11 @@ import * as path from 'path';
 import { TreeNode } from './model';
 import { ProjectItems } from './projectItems';
 
+// One collator: localeCompare with options builds one per call, which shows on projects with many thousands of files.
+const collator = new Intl.Collator(undefined, { sensitivity: 'base' });
+
 function byLabel(a: TreeNode, b: TreeNode): number {
-  return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id);
+  return collator.compare(a.label, b.label) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 function sortLevel(nodes: TreeNode[]): TreeNode[] {

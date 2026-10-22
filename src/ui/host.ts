@@ -8,6 +8,7 @@ import { SettingsFs } from '../settings/settingsFile';
 import { LoaderDeps } from '../state/loader';
 import { Exec, findToolchain, ToolchainOptions, ToolchainResult } from '../toolchain/vswhere';
 import { isSolutionCandidate } from '../util/paths';
+import { decodeText } from '../util/text';
 
 /** Real implementations of the injected dependencies. */
 
@@ -73,7 +74,7 @@ export function killTreeNow(pid: number): void {
 
 async function readText(p: string): Promise<string | undefined> {
   try {
-    return await fs.promises.readFile(p, 'utf8');
+    return decodeText(await fs.promises.readFile(p));
   } catch {
     return undefined;
   }

@@ -70,6 +70,47 @@ test('commented-out items and filters are not read', () => {
   expect(r.filters).toEqual(['New']);
 });
 
+test('a > inside an attribute value does not hide the items after it', () => {
+  const r = parseProjectItems(project(`  <ItemGroup Condition="'$(X)'>'1'">
+    <ClCompile Include="a.cpp" Condition="'$(X)'>'1'" /><ClCompile Include="b.cpp" /><ClCompile Include='c.cpp'><X>1</X></ClCompile>
+  </ItemGroup>`), undefined, ctx);
+  expect(r.items.map(i => i.include)).toEqual(['a.cpp', 'b.cpp', 'c.cpp']);
+});
+
+test('references, folders and the item groups of targets are not files', () => {
+  const r = parseProjectItems(project(`  <ItemGroup>
+    <SDKReference Include="Microsoft.VCLibs, Version=14.0" />
+    <COMReference Include="Lib" />
+    <COMFileReference Include="lib.tlb" />
+    <NativeReference Include="Native" />
+    <Folder Include="assets\\" />
+    <ClCompile Include="a.cpp" />
+  </ItemGroup>
+  <Target Name="After" AfterTargets="Build">
+    <ItemGroup>
+      <Out Include="$(OutDir)x.dll" />
+      <Gen Include="gen.txt" />
+    </ItemGroup>
+  </Target>`), undefined, ctx);
+  expect(r.items.map(i => i.include)).toEqual(['a.cpp']);
+});
+
+test('a bad character reference does not throw', () => {
+  // Kept as written; its ";" then separates items, as for any include list.
+  const r = parseProjectItems(project('  <ItemGroup>\n    <None Include="a&#x110000;b.txt" />\n  </ItemGroup>'), undefined, ctx);
+  expect(r.items.map(i => i.include)).toEqual(['a&#x110000', 'b.txt']);
+});
+
+test('many items and filters are read in linear time', () => {
+  const n = 50000;
+  const vcxproj = project(`  <ItemGroup>\n${Array.from({ length: n }, (_, i) => `    <ClCompile Include="f${i}.cpp" />`).join('\n')}\n  </ItemGroup>`);
+  const filters = filtersFile(`  <ItemGroup>\n${Array.from({ length: n }, (_, i) => `    <ClCompile Include="f${i}.cpp"><Filter>F${i % 5000}</Filter></ClCompile>`).join('\n')}\n  </ItemGroup>`);
+  const start = Date.now();
+  const r = parseProjectItems(vcxproj, filters, ctx);
+  expect(r.filters).toHaveLength(5000);
+  expect(Date.now() - start).toBeLessThan(1500);
+});
+
 test('macros, entities and escapes', () => {
   const r = parseProjectItems(project(`  <ItemGroup>
     <ClInclude Include="$(SolutionDir)inc\\x.h" />

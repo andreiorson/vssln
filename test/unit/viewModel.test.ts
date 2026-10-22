@@ -128,21 +128,21 @@ describe('filter and file rows', () => {
   const file = (item: TreeNode['item']): TreeNode => ({ id: `${guid}/i/x`, kind: 'file', label: 'a.cpp', children: [], projectGuid: guid, item });
 
   test('a present file opens and takes its icon from the theme', () => {
-    const row = projectRow(file({ include: 'a.cpp', path: 'C:\s\a.cpp', missing: false }), s);
-    expect(row).toMatchObject({ label: 'a.cpp', tooltip: 'C:\s\a.cpp', icon: 'file', themeIcon: 'file', openPath: 'C:\s\a.cpp', contextValue: 'file', inactive: false });
+    const row = projectRow(file({ include: 'a.cpp', path: 'C:\\s\\a.cpp', missing: false }), s);
+    expect(row).toMatchObject({ label: 'a.cpp', tooltip: 'C:\\s\\a.cpp', icon: 'file', themeIcon: 'file', openPath: 'C:\\s\\a.cpp', contextValue: 'file', inactive: false });
     expect(row.description).toBeUndefined();
   });
 
   test('a missing file is greyed out and cannot be opened', () => {
-    const row = projectRow(file({ include: 'a.cpp', path: 'C:\s\a.cpp', missing: true }), s);
+    const row = projectRow(file({ include: 'a.cpp', path: 'C:\\s\\a.cpp', missing: true }), s);
     expect(row).toMatchObject({ description: 'file not found', icon: 'circle-slash', contextValue: 'file.missing', inactive: true });
     expect(row.openPath).toBeUndefined();
     expect(projectDecoration(row.resourceUri, s)).toEqual({ color: 'disabledForeground', tooltip: 'file not found' });
   });
 
   test('an item that needs MSBuild is shown as text', () => {
-    const row = projectRow(file({ include: '$(X)\a.cpp', missing: false }), s);
-    expect(row).toMatchObject({ description: 'not evaluated', tooltip: '$(X)\a.cpp', icon: 'circle-slash', contextValue: 'file.unevaluated', inactive: true });
+    const row = projectRow(file({ include: '$(X)\\a.cpp', missing: false }), s);
+    expect(row).toMatchObject({ description: 'not evaluated', tooltip: '$(X)\\a.cpp', icon: 'circle-slash', contextValue: 'file.unevaluated', inactive: true });
     expect(projectDecoration(row.resourceUri, s)).toEqual({ color: 'disabledForeground', tooltip: 'not evaluated' });
   });
 
