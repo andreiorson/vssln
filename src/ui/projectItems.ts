@@ -6,6 +6,8 @@ import { Store } from '../state/store';
 
 interface Built {
   nodes: TreeNode[];
+  /** Each filter's and file's parent: a filter, or the project node the nodes were given for. */
+  parents: Map<TreeNode, TreeNode>;
   /** Lower-case paths of the project's files and of every folder above them, to match file events against. */
   paths: Set<string>;
 }
@@ -65,10 +67,25 @@ export class ProjectItemsProvider implements ChildrenProvider {
     let built = this.built.get(items);
     if (!built) {
       this.prune();
-      built = { nodes: itemsTree(node.project!.guid, items, this.exists), paths: watchedPaths(items) };
+      const nodes = itemsTree(node.project!.guid, items, this.exists);
+      const parents = new Map<TreeNode, TreeNode>();
+      const visit = (parent: TreeNode, children: TreeNode[]) => {
+        for (const child of children) {
+          parents.set(child, parent);
+          visit(child, child.children);
+        }
+      };
+      visit(node, nodes);
+      built = { nodes, parents, paths: watchedPaths(items) };
       this.built.set(items, built);
     }
     return built.nodes;
+  }
+
+  parentOf(node: TreeNode): TreeNode | undefined {
+    if (node.kind !== 'filter' && node.kind !== 'file') return undefined;
+    const items = node.projectGuid ? this.store.state.projects.get(node.projectGuid)?.items : undefined;
+    return items ? this.built.get(items)?.parents.get(node) : undefined;
   }
 
   /** A collapsed project checks its files again when it is expanded next, for files no watcher sees (outside the workspace). */

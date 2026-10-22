@@ -56,6 +56,8 @@ export function buildTree(sln: ParsedSolution): TreeNode[] {
 export interface ChildrenProvider {
   appliesTo(node: TreeNode): boolean;
   children(node: TreeNode): TreeNode[];
+  /** The parent of a node this provider gave out, for revealing it in the tree. */
+  parentOf?(node: TreeNode): TreeNode | undefined;
 }
 
 /** Lets later features (filters, files, references) add children to nodes without changing the views. */
@@ -69,6 +71,14 @@ export class ChildrenRegistry {
   childrenOf(node: TreeNode): TreeNode[] {
     const extra = this.providers.filter(p => p.appliesTo(node)).flatMap(p => p.children(node));
     return [...node.children, ...extra];
+  }
+
+  parentOf(node: TreeNode): TreeNode | undefined {
+    for (const provider of this.providers) {
+      const parent = provider.parentOf?.(node);
+      if (parent) return parent;
+    }
+    return undefined;
   }
 
   hasChildren(node: TreeNode): boolean {

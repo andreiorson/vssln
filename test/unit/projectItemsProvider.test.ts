@@ -84,6 +84,18 @@ test('collapsing a project checks its files again on the next expand', async () 
   expect(checked).toHaveLength(6);
 });
 
+test('parents of filters and files lead back to the project node', async () => {
+  const { provider, find, store } = await setup();
+  const game = find('Game');
+  const nodes = provider.children(game);
+  const sourceFiles = nodes.find(n => n.label === 'Source Files')!;
+  expect(provider.parentOf(sourceFiles)).toBe(game);
+  expect(provider.parentOf(sourceFiles.children.find(n => n.label === 'main.cpp')!)).toBe(sourceFiles);
+  expect(provider.parentOf(game)).toBeUndefined();
+  store.set(await loadFixtureState());
+  expect(provider.parentOf(sourceFiles)).toBeUndefined();
+});
+
 test('a reload starts afresh', async () => {
   const { provider, checked, find, store } = await setup();
   provider.children(find('Game'));

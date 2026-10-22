@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { FilterResult, filterTree } from '../solution/filter';
+import { parentsOf } from '../solution/locate';
 import { buildTree, ChildrenRegistry, TreeNode } from '../solution/model';
 import { ParsedSolution } from '../solution/slnParser';
 import { Store } from '../state/store';
@@ -16,6 +17,7 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
   private cache?: { solution: ParsedSolution; roots: TreeNode[] };
   private filter = '';
   private filtered?: { roots: TreeNode[]; query: string; result: FilterResult };
+  private parents?: { roots: TreeNode[]; map: Map<TreeNode, TreeNode> };
 
   constructor(private readonly store: Store, private readonly registry: ChildrenRegistry) {
     this.subscription = store.onDidChange(coalesce(() => this.changed.fire(), 50));
@@ -67,6 +69,25 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
 
   getChildren(element?: TreeNode): TreeNode[] {
     return element ? this.registry.childrenOf(element) : this.result().roots;
+  }
+
+  /** Parents of the nodes the view shows now (filtered folders are copies), for TreeView.reveal. */
+  getParent(node: TreeNode): TreeNode | undefined {
+    return this.registry.parentOf(node) ?? this.parentMap().get(node);
+  }
+
+  private parentMap(): Map<TreeNode, TreeNode> {
+    const roots = this.result().roots;
+    if (this.parents?.roots !== roots) this.parents = { roots, map: parentsOf(roots) };
+    return this.parents.map;
+  }
+
+  /** A project's node in the tree as shown now; undefined when the filter hides it. */
+  findProjectNode(guid: string): TreeNode | undefined {
+    for (const node of [...this.result().roots, ...this.parentMap().keys()]) {
+      if (node.kind === 'project' && node.project?.guid === guid) return node;
+    }
+    return undefined;
   }
 
   getTreeItem(node: TreeNode): vscode.TreeItem {

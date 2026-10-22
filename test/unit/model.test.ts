@@ -53,3 +53,14 @@ test('registry adds provider children and makes projects expandable', () => {
   expect(reg.childrenOf(game).map(n => n.label)).toEqual(['X']);
   expect(reg.hasChildren(game)).toBe(true);
 });
+
+test('registry asks providers for parents', () => {
+  const reg = new ChildrenRegistry();
+  const game = roots.find(n => n.label === 'Game')!;
+  const child = { id: 'x', kind: 'file' as const, label: 'x', children: [] };
+  expect(reg.parentOf(child)).toBeUndefined();
+  reg.register({ appliesTo: () => false, children: () => [] });
+  reg.register({ appliesTo: () => false, children: () => [], parentOf: n => (n === child ? game : undefined) });
+  expect(reg.parentOf(child)).toBe(game);
+  expect(reg.parentOf(game)).toBeUndefined();
+});
