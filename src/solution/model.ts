@@ -1,0 +1,67 @@
+import { ParsedSolution, SlnFolder, SlnProject } from './slnParser';
+
+/** Later kinds: 'filter' | 'file' | 'references' | 'reference'. */
+export type NodeKind = 'folder' | 'project';
+
+export interface TreeNode {
+  id: string;
+  kind: NodeKind;
+  label: string;
+  children: TreeNode[];
+  project?: SlnProject;
+  folder?: SlnFolder;
+}
+
+function byLabel(a: TreeNode, b: TreeNode): number {
+  return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+}
+
+function sortLevel(nodes: TreeNode[]): TreeNode[] {
+  const folders = nodes.filter(n => n.kind === 'folder').sort(byLabel);
+  const others = nodes.filter(n => n.kind !== 'folder').sort(byLabel);
+  for (const n of folders) n.children = sortLevel(n.children);
+  return [...folders, ...others];
+}
+
+/** Solution folders and projects as a tree; node ids are the .sln GUIDs. */
+export function buildTree(sln: ParsedSolution): TreeNode[] {
+  const folderNodes = new Map<string, TreeNode>();
+  for (const folder of sln.folders) {
+    folderNodes.set(folder.guid, { id: folder.guid, kind: 'folder', label: folder.name, children: [], folder });
+  }
+
+  const roots: TreeNode[] = [];
+  const attach = (node: TreeNode, parentGuid: string | undefined) => {
+    const parent = parentGuid ? folderNodes.get(parentGuid) : undefined;
+    (parent ? parent.children : roots).push(node);
+  };
+
+  for (const folder of sln.folders) attach(folderNodes.get(folder.guid)!, folder.parentGuid);
+  for (const project of sln.projects) {
+    attach({ id: project.guid, kind: 'project', label: project.name, children: [], project }, project.parentGuid);
+  }
+  return sortLevel(roots);
+}
+
+export interface ChildrenProvider {
+  appliesTo(node: TreeNode): boolean;
+  children(node: TreeNode): TreeNode[];
+}
+
+/** Lets later features (filters, files, references) add children to nodes without changing the views. */
+export class ChildrenRegistry {
+  private readonly providers: ChildrenProvider[] = [];
+
+  register(provider: ChildrenProvider): void {
+    this.providers.push(provider);
+  }
+
+  childrenOf(node: TreeNode): TreeNode[] {
+    const extra = this.providers.filter(p => p.appliesTo(node)).flatMap(p => p.children(node));
+    return [...node.children, ...extra];
+  }
+
+  hasChildren(node: TreeNode): boolean {
+    return node.children.length > 0 || this.providers.some(p => p.appliesTo(node));
+  }
+}
