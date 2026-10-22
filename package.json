@@ -113,24 +113,89 @@
         "title": "Show log",
         "category": "VS Solution",
         "icon": "$(output)"
+      },
+      {
+        "command": "vssln.build",
+        "title": "Build solution",
+        "icon": "$(tools)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.rebuild",
+        "title": "Rebuild solution",
+        "icon": "$(debug-restart)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.clean",
+        "title": "Clean solution",
+        "icon": "$(clear-all)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.stop",
+        "title": "Stop build",
+        "icon": "$(debug-stop)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.buildProject",
+        "title": "Build project",
+        "icon": "$(tools)",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.rebuildProject",
+        "title": "Rebuild project",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.cleanProject",
+        "title": "Clean project",
+        "category": "VS Solution"
+      },
+      {
+        "command": "vssln.showBuildOutput",
+        "title": "Show build output",
+        "category": "VS Solution"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "vssln.openSettings",
-          "when": "view == vssln.status",
-          "group": "navigation"
+          "command": "vssln.build",
+          "when": "view == vssln.status && vssln.phase == ready && !vssln.building",
+          "group": "navigation@1"
         },
         {
-          "command": "vssln.refresh",
+          "command": "vssln.rebuild",
+          "when": "view == vssln.status && vssln.phase == ready && !vssln.building",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vssln.clean",
+          "when": "view == vssln.status && vssln.phase == ready && !vssln.building",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vssln.stop",
+          "when": "view == vssln.status && vssln.building",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vssln.openSettings",
           "when": "view == vssln.status",
           "group": "1_vssln@1"
         },
         {
-          "command": "vssln.showLog",
+          "command": "vssln.refresh",
           "when": "view == vssln.status",
           "group": "1_vssln@2"
+        },
+        {
+          "command": "vssln.showLog",
+          "when": "view == vssln.status",
+          "group": "1_vssln@3"
         }
       ],
       "view/item/context": [
@@ -168,6 +233,31 @@
           "command": "vssln.copyPath",
           "when": "view == vssln.projects && viewItem =~ /^project\\./",
           "group": "2_file@3"
+        },
+        {
+          "command": "vssln.stop",
+          "when": "view == vssln.status && viewItem == status.build.running",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.buildProject",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.buildProject",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "group": "0_build@1"
+        },
+        {
+          "command": "vssln.rebuildProject",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "group": "0_build@2"
+        },
+        {
+          "command": "vssln.cleanProject",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "group": "0_build@3"
         }
       ],
       "commandPalette": [
@@ -186,9 +276,44 @@
         {
           "command": "vssln.copyPath",
           "when": "false"
+        },
+        {
+          "command": "vssln.buildProject",
+          "when": "false"
+        },
+        {
+          "command": "vssln.rebuildProject",
+          "when": "false"
+        },
+        {
+          "command": "vssln.cleanProject",
+          "when": "false"
         }
       ]
-    }
+    },
+    "taskDefinitions": [
+      {
+        "type": "vssln",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "Build",
+              "Rebuild",
+              "Clean"
+            ],
+            "description": "What MSBuild does."
+          },
+          "project": {
+            "type": "string",
+            "description": "Project name as in the .sln; the whole solution when omitted."
+          }
+        }
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.mjs",

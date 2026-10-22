@@ -5,6 +5,7 @@ import { ensureObjectKey, SelectionKey } from '../settings/settings';
 import { SETTINGS_RELATIVE_PATH, SettingsFile, SettingsSyntaxError, writeSolutionSelection } from '../settings/settingsFile';
 import { TreeNode } from '../solution/model';
 import { loadWorkspace } from '../state/loader';
+import { carryBuild } from '../state/build';
 import { failedState, Store } from '../state/store';
 import { cachedToolchain } from '../toolchain/vswhere';
 import { folderOf, samePath } from '../util/paths';
@@ -25,7 +26,7 @@ export class Controller {
     try {
       const state = await loadWorkspace(loaderDeps(opts => this.toolchain.find(opts)));
       if (generation !== this.generation) return;
-      this.store.set(state);
+      this.store.set({ ...state, build: carryBuild(this.store.state, state) });
       const sln = state.solution ? `${path.basename(state.solution.path)}, ${state.configuration?.name ?? 'no configuration'}` : 'no solution';
       this.log.info(`Loaded: ${sln}; ${state.projects.size} C++ projects; toolchain ${state.toolchain?.displayName ?? 'not found'}.`);
       for (const p of state.problems) (p.severity === 'error' ? this.log.error : this.log.warn).call(this.log, p.message);
@@ -124,9 +125,18 @@ function nodePath(node: TreeNode | undefined): string | undefined {
 
 export function registerCommands(store: Store, controller: Controller, log: vscode.LogOutputChannel): vscode.Disposable[] {
   const register = (id: string, fn: (...args: any[]) => unknown) => vscode.commands.registerCommand(id, fn);
+  // The build uses the selection it started with, so it cannot change underneath it.
+  const unlocked = (fn: (...args: any[]) => unknown) => (...args: any[]) => {
+    if (store.state.build.status === 'running') {
+      void vscode.window.showInformationMessage('Wait for the build to finish or stop it.');
+      return;
+    }
+    return fn(...args);
+  };
+  const registerLocked = (id: string, fn: (...args: any[]) => unknown) => register(id, unlocked(fn));
 
   return [
-    register('vssln.selectSolution', async () => {
+    registerLocked('vssln.selectSolution', async () => {
       const s = store.state;
       if (s.solutions.length === 0) {
         void vscode.window.showInformationMessage('No .sln files found in this workspace.');
@@ -140,12 +150,12 @@ export function registerCommands(store: Store, controller: Controller, log: vsco
       await controller.writeSolution(folder, path.relative(folder, choice.value).replace(/\\/g, '/'));
     }),
 
-    register('vssln.selectConfiguration', async () => {
+    registerLocked('vssln.selectConfiguration', async () => {
       const choice = await pick(configurationItems(store.state), 'Select a solution configuration');
       if (choice) await controller.writeSelection('configuration', choice.value);
     }),
 
-    register('vssln.selectStartupProject', async () => {
+    registerLocked('vssln.selectStartupProject', async () => {
       let showAll = false;
       for (;;) {
         const choice = await pick(startupItems(store.state, showAll), 'Select the startup project');
@@ -159,7 +169,7 @@ export function registerCommands(store: Store, controller: Controller, log: vsco
       }
     }),
 
-    register('vssln.setAsStartup', async (node?: TreeNode) => {
+    registerLocked('vssln.setAsStartup', async (node?: TreeNode) => {
       if (node?.project) await controller.writeSelection('startupProject', node.project.name);
     }),
 

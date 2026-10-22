@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ChildrenRegistry } from './solution/model';
 import { AppState, Store } from './state/store';
+import { BuildTasks, registerBuildCommands } from './ui/buildTasks';
 import { debounce } from './ui/coalesce';
 import { Controller, registerCommands } from './ui/commands';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
@@ -20,6 +21,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const store = new Store();
   const registry = new ChildrenRegistry();
   const controller = new Controller(store, log);
+  const builds = new BuildTasks(store, context.logUri.fsPath, log);
 
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
@@ -40,8 +42,15 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   });
   watchers.push(deletions);
 
-  const setPhase = (s: AppState) => void vscode.commands.executeCommand('setContext', 'vssln.phase', s.phase);
-  setPhase(store.state);
+  let building = false;
+  const setContext = (s: AppState) => {
+    void vscode.commands.executeCommand('setContext', 'vssln.phase', s.phase);
+    if (building !== (s.build.status === 'running')) {
+      building = s.build.status === 'running';
+      void vscode.commands.executeCommand('setContext', 'vssln.building', building);
+    }
+  };
+  setContext(store.state);
 
   context.subscriptions.push(
     log,
@@ -55,8 +64,10 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     ...watchers,
     { dispose: () => reload.cancel() },
     vscode.workspace.onDidChangeWorkspaceFolders(reload),
-    store.onDidChange(setPhase),
+    store.onDidChange(setContext),
+    builds,
     ...registerCommands(store, controller, log),
+    ...registerBuildCommands(builds),
   );
 
   void controller.reload();

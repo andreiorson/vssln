@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { expect, test } from 'vitest';
 import { OutputParser } from '../../src/build/outputParser';
-import { applyBuildEvent, BuildState, expectedProjects, finishBuild, idleBuild, startBuild } from '../../src/state/build';
+import { applyBuildEvent, BuildState, carryBuild, expectedProjects, finishBuild, idleBuild, startBuild } from '../../src/state/build';
 import { parseSln } from '../../src/solution/slnParser';
 import { ProjectEntry } from '../../src/state/store';
 import { readFixture } from './helpers';
@@ -107,6 +107,22 @@ test('replaying an incremental build', () => {
   const b = finishBuild(replay('msbuild/build-incremental.log', solutionBuild()), { exitCode: 0, cancelled: false }, 999);
   expect(b).toMatchObject({ status: 'succeeded', done: 10, total: 10, errors: 0 });
   expect([...b.projects.values()].every(p => p.status === 'succeeded')).toBe(true);
+});
+
+test('a reload keeps the build state only for the same solution and configuration', () => {
+  const b = finishBuild(solutionBuild(), { exitCode: 0, cancelled: false }, 5);
+  const debugX64 = engine.configurations.find(c => c.name === 'Debug|x64')!;
+  const prev = { solution: engine, configuration: releaseX64, build: b };
+  expect(carryBuild(prev, { solution: engine, configuration: releaseX64 })).toBe(b);
+  expect(carryBuild(prev, { solution: engine, configuration: debugX64 })).toBe(idleBuild);
+  expect(carryBuild(prev, { solution: { ...engine, path: 'C:\\other\\X.sln' }, configuration: releaseX64 })).toBe(idleBuild);
+  expect(carryBuild(prev, { solution: undefined, configuration: undefined })).toBe(idleBuild);
+});
+
+test('a running build survives any reload', () => {
+  const running = solutionBuild();
+  const debugX64 = engine.configurations.find(c => c.name === 'Debug|x64')!;
+  expect(carryBuild({ solution: engine, configuration: releaseX64, build: running }, { solution: engine, configuration: debugX64 })).toBe(running);
 });
 
 test('cancel while building', () => {

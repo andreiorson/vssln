@@ -7,9 +7,23 @@ export class StatusView implements vscode.TreeDataProvider<StatusRow>, vscode.Di
   private readonly changed = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.changed.event;
   private readonly subscription: { dispose(): void };
+  private ticker?: ReturnType<typeof setInterval>;
 
   constructor(private readonly store: Store) {
-    this.subscription = store.onDidChange(coalesce(() => this.changed.fire(), 50));
+    const refresh = coalesce(() => this.changed.fire(), 50);
+    this.subscription = store.onDidChange(s => {
+      refresh();
+      this.tick(s.build.status === 'running');
+    });
+  }
+
+  /** The elapsed time of a running build moves even when no project finishes. */
+  private tick(running: boolean): void {
+    if (running && !this.ticker) this.ticker = setInterval(() => this.changed.fire(), 1000);
+    if (!running && this.ticker) {
+      clearInterval(this.ticker);
+      this.ticker = undefined;
+    }
   }
 
   getChildren(element?: StatusRow): StatusRow[] {
@@ -28,6 +42,7 @@ export class StatusView implements vscode.TreeDataProvider<StatusRow>, vscode.Di
   }
 
   dispose(): void {
+    this.tick(false);
     this.subscription.dispose();
     this.changed.dispose();
   }

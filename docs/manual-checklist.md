@@ -25,6 +25,17 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Delete `vssln.json`: defaults return.
 - [ ] Completion and validation of keys work while editing `vssln.json` (schema).
 
+## Build
+
+- [ ] The Status view title shows Build, Rebuild and Clean buttons without opening a menu; Open settings, Reload solution and Show log are in the `…` menu.
+- [ ] Build: a Build row appears with `done/total · m:ss`; projects show `waiting`, `building` (spinning icon), `built · Ns`; the terminal shows a short log (`Math: succeeded`, outputs, summary) and `Build log: …`; the status bar shows `Building n/m`.
+- [ ] While building, the title shows only Stop, the solution and configuration rows say `locked during build`, and changing the configuration is refused with a message.
+- [ ] Stop during a Rebuild: the build ends as `stopped`, no MSBuild, cl or link process remains in Task Manager.
+- [ ] Rebuild and Clean ask for confirmation; Cancel does nothing.
+- [ ] Break the build (`"environment": { "CL": "/DENGINE_BREAK_BUILD" }` in `vssln.json`), Build: `Math` turns red with a badge, its tooltip shows the error, `Core` says `1 error`, Problems has the C1189 error and clicking it opens `vector.cpp` at line 4.
+- [ ] Hover a project: the hammer builds only that project (and its dependencies); its context menu has Build, Rebuild and Clean project.
+- [ ] `Ctrl+Shift+B` offers the VS Solution build tasks.
+
 ## Toolchain
 
 - [ ] With Visual Studio installed and no `toolchain` settings: no error row; the log (Show log) names the Visual Studio instance.

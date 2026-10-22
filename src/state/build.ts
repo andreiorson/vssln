@@ -96,6 +96,22 @@ export function applyBuildEvent(b: BuildState, e: BuildEvent, guidByPath: (path:
   return { ...b, projects, total, done };
 }
 
+/**
+ * The build state to keep across a reload: a running build always, a finished one only while it still describes
+ * the same solution and configuration.
+ */
+export function carryBuild(
+  prev: { solution?: ParsedSolution; configuration?: SolutionConfig; build: BuildState },
+  next: { solution?: ParsedSolution; configuration?: SolutionConfig },
+): BuildState {
+  if (prev.build.status === 'running') return prev.build;
+  const same =
+    prev.solution !== undefined && next.solution !== undefined &&
+    prev.solution.path.toLowerCase() === next.solution.path.toLowerCase() &&
+    prev.configuration?.name === next.configuration?.name;
+  return same ? prev.build : idleBuild;
+}
+
 export function finishBuild(b: BuildState, outcome: { exitCode: number | null; cancelled: boolean }, now: number): BuildState {
   const projects = new Map<string, ProjectBuild>();
   for (const [guid, p] of b.projects) {
