@@ -57,6 +57,17 @@ test('a file in no project but inside a project folder gets the nearest project 
   expect(index.configurationFor(path.join(WORKSPACE, 'README.md'), dumps)).toBeUndefined();
 });
 
+test('a header in no project and no project folder takes a project whose include directories hold it, startup first', () => {
+  const inc = path.join(WORKSPACE, 'Core', 'include');
+  const header = path.join(inc, 'engine', 'render.h');
+  const withInc = (dump: ProjectDump, define: string): ProjectDump => ({ ...dump, records: [{ files: [], commandLine: `/I "${inc}" /D ${define}`, projectDefault: true }] });
+  const both = new Map([[GAME, withInc(gameDump, 'FROM_GAME')], [MATH, withInc(mathDump, 'FROM_MATH')]]);
+  expect(new FileIndex(s).configurationFor(header, both)!.defines).toEqual(['FROM_GAME']);
+  expect(new FileIndex({ ...s, startupProjectGuid: MATH }).configurationFor(header, both)!.defines).toEqual(['FROM_MATH']);
+  // System include directories do not count: every project has them.
+  expect(new FileIndex(s).configurationFor('C:\\VC\\include\\vector', new Map([[GAME, gameDump]]))).toBeUndefined();
+});
+
 test('no answer for a project without data', () => {
   expect(new FileIndex(s).configurationFor(game('main.cpp'), new Map())).toBeUndefined();
 });

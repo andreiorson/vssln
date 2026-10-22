@@ -75,7 +75,7 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 
 ## IntelliSense
 
-- [ ] Open `samples/Engine` with nothing cached: the Status view shows `IntelliSense` with a blue spinner and `computing N · k / 12 ready`; the status bar shows `IntelliSense k/12`; project rows say `IntelliSense: waiting` / `computing` while they wait. It ends with a green check and `12 / 12 ready`, and the status bar item disappears. The log (Show log) has one line per project with its time.
+- [ ] Open `samples/Engine` with nothing cached: the Status view shows `IntelliSense` with a blue spinner and `computing N · k / 10 ready`; the status bar shows `IntelliSense k/10`; project rows say `IntelliSense: waiting` / `computing` while they wait. It ends with a green check and `10 / 10 ready` (the 10 C++ projects of Release|x64 that exist; Missing is skipped), and the status bar item disappears. The log (Show log) has one line per project with its time.
 - [ ] Open `Graphics/Render/render.cpp`: no red squiggles; Go to Definition on `#include <engine/render.h>` opens `Core/include/engine/render.h`; hovering `kShaderCount` shows its value from the generated `shaders.h`; `RENDER_EXPORTS` is defined (an `#ifdef RENDER_EXPORTS` block is not greyed out).
 - [ ] Open `Graphics/Render/pch.h` (a header): the same defines apply (the project's default options).
 - [ ] Add `int broken = "text";` to `render.cpp`: a red squiggle from C/C++ appears; remove the line.

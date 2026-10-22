@@ -7,10 +7,27 @@ const banner = (path: string) => `  <!--\n${'='.repeat(40)}\n  <Import Project="
 
 test('the files of the Render evaluation: every banner once, the project and the solution sheet included', () => {
   const { inputs } = parsePreprocess(readFixture('msbuild/preprocess-render.xml'), ctx, () => true);
-  expect(inputs).toHaveLength(262);
+  expect(inputs).toHaveLength(78);
+  expect(inputs.every(p => /^[A-Za-z]:\\/.test(p))).toBe(true);
   expect(inputs[0]).toBe(ctx.projectPath);
   expect(inputs).toContain('D:\\visualizer\\samples\\Engine\\Build\\Common.props');
   expect(new Set(inputs.map(p => p.toLowerCase())).size).toBe(inputs.length);
+});
+
+test('documentation blocks of targets files use "=" rules too: their text is no file, an odd rule changes nothing', () => {
+  const xml = [
+    banner('C:\\VS\\Microsoft.Common.targets'),
+    '  <!--',
+    `  ${'='.repeat(60)}`,
+    '                                      Build',
+    '  The main build entry point.',
+    `  ${'='.repeat(60)}`,
+    '  -->',
+    `  <!-- ${'='.repeat(30)} a lone rule -->`,
+    `  ${'='.repeat(25)}`,
+    banner('C:\\VS\\Microsoft.Cpp.targets'),
+  ].join('\n');
+  expect(parsePreprocess(xml, ctx, () => true).inputs).toEqual(['C:\\VS\\Microsoft.Common.targets', 'C:\\VS\\Microsoft.Cpp.targets']);
 });
 
 test('commented-out imports: awaited only when they resolve to a file that does not exist', () => {

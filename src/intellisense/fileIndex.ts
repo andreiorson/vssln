@@ -19,10 +19,15 @@ export class FileIndex {
   /** Project folders, deepest first. */
   private readonly folders: { dir: string; guid: string }[] = [];
   private readonly records = new WeakMap<ProjectDump, Map<string, CommandLineRecord>>();
+  /** Include directories of each project's default command line (without the system ones), with a trailing "\". */
+  private readonly includeDirs = new WeakMap<ProjectDump, string[]>();
+  /** C++ projects on disk: the startup project first, then solution order. */
+  private readonly order: string[] = [];
 
   constructor(private readonly s: IndexState) {
     const cpp = (s.solution?.projects ?? []).filter(p => p.kind === 'vcxproj' && s.projects.get(p.guid)?.exists);
     const ordered = [...cpp.filter(p => p.guid === s.startupProjectGuid), ...cpp.filter(p => p.guid !== s.startupProjectGuid)];
+    this.order = ordered.map(p => p.guid);
     for (const project of ordered) {
       for (const item of s.projects.get(project.guid)?.items?.items ?? []) {
         if (!item.path) continue;
@@ -51,7 +56,11 @@ export class FileIndex {
 
   /** The configuration of the first candidate project that has data; undefined leaves the file to cpptools' defaults. */
   configurationFor(file: string, dumps: ReadonlyMap<string, ProjectDump>): CppConfiguration | undefined {
-    for (const guid of this.candidates(file)) {
+    const listed = this.candidates(file);
+    // A header in a shared include folder (Core\include\engine\x.h) belongs to no project: it is parsed with a
+    // project that puts its folder on the include path, as a source of that project would see it.
+    const candidates = listed.length > 0 ? listed : this.includingProjects(file, dumps);
+    for (const guid of candidates) {
       const dump = dumps.get(guid);
       const record = dump && this.recordFor(dump, file);
       if (!dump || !record) continue;
@@ -59,6 +68,24 @@ export class FileIndex {
       return toConfiguration(record.commandLine, dump.systemIncludes, platform, file);
     }
     return undefined;
+  }
+
+  private includingProjects(file: string, dumps: ReadonlyMap<string, ProjectDump>): string[] {
+    const k = pathKey(file);
+    return this.order.filter(guid => {
+      const dump = dumps.get(guid);
+      return dump !== undefined && this.projectIncludeDirs(dump).some(dir => k.startsWith(dir));
+    });
+  }
+
+  private projectIncludeDirs(dump: ProjectDump): string[] {
+    let dirs = this.includeDirs.get(dump);
+    if (!dirs) {
+      const record = dump.records.find(r => r.projectDefault) ?? dump.records[0];
+      dirs = record ? toConfiguration(record.commandLine, [], 'x64').includePath.map(d => `${pathKey(d).replace(/\\+$/, '')}\\`) : [];
+      this.includeDirs.set(dump, dirs);
+    }
+    return dirs;
   }
 
   /** The file's own record, else the project default (headers, excluded sources), else the first one. */

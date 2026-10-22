@@ -9,6 +9,7 @@ export function preprocessArgs(input: DebugPropertiesInput, outFile: string): st
 }
 
 const RULE = /^\s*={20,}\s*$/;
+const ABSOLUTE = /^(?:[A-Za-z]:\\|\\\\)[^<>"|?*]*$/;
 const COMMENTED_IMPORT = /^\s*<!--\s*<Import\s+Project\s*=\s*"([^"]*)"/;
 
 /**
@@ -28,23 +29,19 @@ export function parsePreprocess(xml: string, ctx: { projectPath: string; solutio
   };
 
   let current = ctx.projectPath;
-  let inBanner = false;
-  let last = '';
+  // The last non-empty line: a rule right after an absolute path closes a banner. Documentation blocks of the
+  // targets files use "=" rules too, around text, so the path decides, not the count of rules.
+  let previous = '';
   for (const line of xml.split(/\r?\n/)) {
     if (RULE.test(line)) {
-      // The closing rule: the line before it names the file read from here on.
-      if (inBanner && last) {
-        current = last;
+      if (ABSOLUTE.test(previous)) {
+        current = previous;
         add(inputs, current);
       }
-      inBanner = !inBanner;
-      last = '';
+      previous = '';
       continue;
     }
-    if (inBanner) {
-      if (line.trim()) last = line.trim();
-      continue;
-    }
+    if (line.trim()) previous = line.trim();
     const commented = COMMENTED_IMPORT.exec(line);
     if (!commented) continue;
     const dir = path.win32.dirname(current);
