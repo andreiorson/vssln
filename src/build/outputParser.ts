@@ -94,7 +94,10 @@ export class OutputParser {
     const line = raw.replace(PREFIX, '').trim();
     if (this.inSummary) return { events: [], display: line === '' ? undefined : line, summary: true };
 
-    if (line === 'Build succeeded.' || line === 'Build FAILED.') {
+    // MSBuild's own summary starts at the beginning of a line; the same words indented are a tool's output (a
+    // package manager project building its packages).
+    const top = raw.trimEnd();
+    if (top === 'Build succeeded.' || top === 'Build FAILED.') {
       this.inSummary = true;
       return { events: [], display: line, summary: true };
     }

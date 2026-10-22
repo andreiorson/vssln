@@ -2,6 +2,12 @@
 
 All notable changes to the VS Solution extension. Versions follow the development phases; the package version goes up with every package build.
 
+## 0.5.2 — 2026-10-23
+
+### Fixed
+
+- **Build output stopped after a project printed "Build succeeded."** A project whose build runs other builds (conan building packages) prints those words itself; they were taken for MSBuild's final summary, and in waves the rest of that run was hidden. Only MSBuild's own summary, at the start of a line, counts now.
+
 ## 0.5.1 — 2026-10-23
 
 ### Fixed

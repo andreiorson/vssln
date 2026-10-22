@@ -183,6 +183,21 @@ test('the final summary is displayed but its diagnostics are not counted again',
   expect(display.some(l => l.startsWith('Time Elapsed'))).toBe(true);
 });
 
+test('a tool that prints "Build succeeded." inside a project does not start the summary', () => {
+  // A conan project runs builds of packages: their own "Build succeeded." is indented output of the Exec task.
+  const p = new OutputParser();
+  p.push(`     1>Project "${E}Engine.slnf" (1) is building "${E}Tools\\Conan\\Conan.vcxproj" (2) on node 1 (default targets).`);
+  for (const raw of ['     2>InstallDependencies:', '         conan install . --build=missing', '         Build succeeded.', '           0 Warning(s)', '         Build FAILED.']) {
+    expect(p.push(raw).summary).toBeUndefined();
+  }
+  const after = p.push('         conan: packages installed');
+  expect(after.summary).toBeUndefined();
+  expect(after.display).toBe('1>conan: packages installed');
+  // MSBuild's own summary starts at the beginning of a line.
+  expect(p.push('Build succeeded.').summary).toBe(true);
+  expect(p.push('    0 Warning(s)').summary).toBe(true);
+});
+
 test('warning MSB4121 is a warning of the solution', () => {
   const { events } = parseAll('msbuild/build-incremental.log');
   expect(events.filter(e => e.kind === 'diagnostic')).toEqual([
