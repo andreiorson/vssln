@@ -1,3 +1,4 @@
+import { cachedFs, ProjectReference, readProjectReferences, ReferenceFs } from '../solution/projectReferences';
 import { ParsedSolution, projectConfigFor, SlnProject, SolutionConfig } from '../solution/slnParser';
 import type { ProjectEntry } from '../state/store';
 import { pathKey } from '../util/paths';
@@ -16,18 +17,30 @@ export interface WavePlan {
   cycle?: string[];
   /** Planned projects that depend on this one, directly or not, in solution order. */
   dependents(guid: string): string[];
+  /** References of planned projects that name no project of the solution and could not be evaluated. */
+  unread: { guid: string; include: string }[];
 }
 
 /**
  * Plans a build of the solution (or of one project and what it depends on). The graph has every project the solution
  * configuration builds (Build.0) whose file exists, of any kind; its edges come from the .sln project dependencies
- * and from the ProjectReference items of C++ projects. A dependency on a project outside that set counts through it.
+ * and from the ProjectReference items of C++ projects (`references`, by project guid; a project without an entry has
+ * unknown references). A reference names a project by its path, or by its guid when the path needs MSBuild. A
+ * dependency on a project outside that set counts through it.
  */
-export function planWaves(sln: ParsedSolution, config: SolutionConfig, projects: ReadonlyMap<string, ProjectEntry>, project?: SlnProject): WavePlan {
+export function planWaves(
+  sln: ParsedSolution,
+  config: SolutionConfig,
+  projects: ReadonlyMap<string, ProjectEntry>,
+  references: ReadonlyMap<string, ProjectReference[]>,
+  project?: SlnProject,
+): WavePlan {
   const key = (guid: string) => guid.toUpperCase();
   const byKey = new Map(sln.projects.map(p => [key(p.guid), p]));
   const byPath = new Map(sln.projects.map(p => [pathKey(p.absPath), p]));
-  const references = (p: SlnProject) => projects.get(p.guid)?.items?.references ?? [];
+  const referencesOf = (p: SlnProject) => references.get(p.guid) ?? [];
+  /** The solution project a reference names. */
+  const target = (r: ProjectReference) => (r.path !== undefined ? byPath.get(pathKey(r.path)) : undefined) ?? (r.guid ? byKey.get(key(r.guid)) : undefined);
   const buildable = (p: SlnProject) => {
     if (!projectConfigFor(sln, p.guid, config.name)?.build) return false;
     return p.kind !== 'vcxproj' || projects.get(p.guid)?.exists === true;
@@ -36,9 +49,9 @@ export function planWaves(sln: ParsedSolution, config: SolutionConfig, projects:
   const direct = new Map<string, string[]>();
   for (const p of sln.projects) {
     const deps = new Set(p.dependencies.map(key).filter(k => byKey.has(k)));
-    for (const r of references(p)) {
-      const target = byPath.get(pathKey(r));
-      if (target) deps.add(key(target.guid));
+    for (const r of referencesOf(p)) {
+      const t = target(r);
+      if (t) deps.add(key(t.guid));
     }
     deps.delete(key(p.guid));
     direct.set(key(p.guid), [...deps]);
@@ -114,27 +127,47 @@ export function planWaves(sln: ParsedSolution, config: SolutionConfig, projects:
     }
     ready = next;
   }
+  const unread = ordered.flatMap(p => referencesOf(p).filter(r => r.path === undefined && !target(r)).map(r => ({ guid: p.guid, include: r.include })));
   const remaining = ordered.filter(p => !waveOf.has(key(p.guid)));
   if (remaining.length > 0) {
-    return { waves: [ordered.map(p => p.guid)], skipReferences: [false], cycle: findCycle(remaining.map(p => key(p.guid)), deps, byKey), dependents };
+    return { waves: [ordered.map(p => p.guid)], skipReferences: [false], cycle: findCycle(remaining.map(p => key(p.guid)), deps, byKey), dependents, unread };
   }
 
   // Only C++ projects have their references read; any other project may reference something MSBuild must build.
-  const knowsReferences = (p: SlnProject) => {
-    const items = projects.get(p.guid)?.items;
-    return p.kind === 'vcxproj' && items !== undefined && !items.unresolvedReferences;
-  };
   const skipReferences = waves.map((wave, n) =>
-    wave.every(guid =>
-      knowsReferences(byKey.get(key(guid))!) &&
-      references(byKey.get(key(guid))!).every(r => {
-        const target = byPath.get(pathKey(r));
-        const w = target ? waveOf.get(key(target.guid)) : undefined;
+    wave.every(guid => {
+      const p = byKey.get(key(guid))!;
+      return p.kind === 'vcxproj' && references.has(p.guid) && referencesOf(p).every(r => {
+        const t = target(r);
+        const w = t ? waveOf.get(key(t.guid)) : undefined;
         return w !== undefined && w < n;
-      }),
-    ),
+      });
+    }),
   );
-  return { waves, skipReferences, dependents };
+  return { waves, skipReferences, dependents, unread };
+}
+
+/** The ProjectReferences of every C++ project of the solution that exists, by guid, for the solution configuration. */
+export async function readSolutionReferences(
+  sln: ParsedSolution,
+  config: SolutionConfig,
+  projects: ReadonlyMap<string, ProjectEntry>,
+  build: { properties: Record<string, string>; env: Record<string, string | undefined> },
+  fs: ReferenceFs,
+): Promise<Map<string, ProjectReference[]>> {
+  const files = cachedFs(fs);
+  const cpp = sln.projects.filter(p => p.kind === 'vcxproj' && projects.get(p.guid)?.exists === true);
+  return new Map(await Promise.all(cpp.map(async (p): Promise<[string, ProjectReference[]]> => {
+    const mapping = projectConfigFor(sln, p.guid, config.name);
+    const ctx = {
+      projectPath: p.absPath,
+      solutionPath: sln.path,
+      configuration: mapping?.configuration ?? config.configuration,
+      platform: mapping?.platform ?? config.platform,
+      ...build,
+    };
+    return [p.guid, await readProjectReferences(ctx, files)];
+  })));
 }
 
 /** A cycle among the projects left after Kahn's algorithm, as names, the first repeated at the end. */

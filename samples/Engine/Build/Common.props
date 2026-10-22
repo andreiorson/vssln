@@ -19,4 +19,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
+  <!-- Every project depends on Deps through this sheet, as projects depend on a conan package project through a
+       shared property sheet: the reference is in no .vcxproj. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Deps'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\Tools\Deps\Deps.vcxproj">
+      <Project>{A1000000-0000-0000-0000-00000000000D}</Project>
+    </ProjectReference>
+  </ItemGroup>
 </Project>

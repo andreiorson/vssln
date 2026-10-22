@@ -56,6 +56,7 @@ function deps(store: Store, runner: BuildRunner, written: string[], files = new 
   return {
     store, runner, now: () => (t += 1000), logDir: 'C:\\logs', env: { PATH: 'C:\\bin' }, write: l => written.push(l),
     writeFile: async (p, text) => void files.set(p, text),
+    projectFiles: { readText: async () => undefined, exists: async () => false },
   };
 }
 

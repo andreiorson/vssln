@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { planWaves, solutionFilter } from '../../src/build/waves';
 import { parseSln } from '../../src/solution/slnParser';
+import { ProjectReference } from '../../src/solution/projectReferences';
 import { ProjectEntry } from '../../src/state/store';
 
 const CPP = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}';
@@ -12,7 +13,7 @@ interface P {
   /** .sln project dependencies, by name. */
   deps?: string[];
   /** ProjectReference items, by name or by a path outside the solution. */
-  refs?: string[];
+  refs?: (string | ProjectReference)[];
   build?: boolean;
   csharp?: boolean;
   missing?: boolean;
@@ -40,30 +41,30 @@ function solution(list: P[]) {
   lines.push('\tEndGlobalSection', 'EndGlobal');
   const sln = parseSln(lines.join('\r\n'), 'C:\\s\\S.sln');
   const projects = new Map<string, ProjectEntry>(
-    list.flatMap((p, i) => (p.csharp ? [] : [[guid(i + 1), p.missing ? { exists: false } : {
-      exists: true,
-      items: { items: [], filters: [], unresolvedReferences: false, references: (p.refs ?? []).map(r => (r.includes('\\') ? r : `C:\\s\\${r}\\${r}.vcxproj`)) },
-    }]] as [string, ProjectEntry][])),
+    list.flatMap((p, i) => (p.csharp ? [] : [[guid(i + 1), { exists: !p.missing }]] as [string, ProjectEntry][])),
   );
+  const asRead = (r: string | ProjectReference): ProjectReference =>
+    typeof r !== 'string' ? r : { include: r, path: r.includes('\\') ? r : `C:\\s\\${r}\\${r}.vcxproj` };
+  const references = new Map(list.flatMap((p, i) => (p.csharp || p.missing ? [] : [[guid(i + 1), (p.refs ?? []).map(asRead)]] as [string, ProjectReference[]][])));
   const names = (guids: string[]) => guids.map(g => sln.projects.find(p => p.guid.toUpperCase() === g.toUpperCase())!.name);
-  return { sln, config: sln.configurations[0], projects, names, byName: (name: string) => sln.projects.find(p => p.name === name)! };
+  return { sln, config: sln.configurations[0], projects, references, names, byName: (name: string) => sln.projects.find(p => p.name === name)! };
 }
 
 test('a chain gives one wave per level; independent projects share a wave in solution order', () => {
   const s = solution([{ name: 'App', refs: ['Lib'] }, { name: 'Tool' }, { name: 'Lib', deps: ['Conan'] }, { name: 'Conan' }]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves.map(s.names)).toEqual([['Tool', 'Conan'], ['Lib'], ['App']]);
   expect(plan.cycle).toBeUndefined();
 });
 
 test('every project of the solution configuration is planned, of any kind; not built and missing ones are not', () => {
   const s = solution([{ name: 'App', deps: ['Gen'] }, { name: 'Gen', csharp: true }, { name: 'Off', build: false }, { name: 'Gone', missing: true }]);
-  expect(planWaves(s.sln, s.config, s.projects).waves.map(s.names)).toEqual([['Gen'], ['App']]);
+  expect(planWaves(s.sln, s.config, s.projects, s.references).waves.map(s.names)).toEqual([['Gen'], ['App']]);
 });
 
 test('a dependency through a project outside the build set still orders the build', () => {
   const s = solution([{ name: 'App', refs: ['Mid'] }, { name: 'Mid', build: false, refs: ['Conan'] }, { name: 'Conan' }]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves.map(s.names)).toEqual([['Conan'], ['App']]);
   // App references Mid, which no wave builds: its references must still be built by MSBuild.
   expect(plan.skipReferences).toEqual([true, false]);
@@ -71,23 +72,36 @@ test('a dependency through a project outside the build set still orders the buil
 
 test('references are skipped only when every one was built in an earlier wave', () => {
   const s = solution([{ name: 'App', refs: ['Lib'] }, { name: 'Lib', refs: ['C:\\elsewhere\\Ext.vcxproj'] }, { name: 'Other', refs: ['Lib'] }]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves.map(s.names)).toEqual([['Lib'], ['App', 'Other']]);
   expect(plan.skipReferences).toEqual([false, true]);
 });
 
 test('a wave with a project whose references are unknown (not C++) builds references', () => {
   const s = solution([{ name: 'App', deps: ['Tool'] }, { name: 'Tool', csharp: true }]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves.map(s.names)).toEqual([['Tool'], ['App']]);
   expect(plan.skipReferences).toEqual([false, true]);
 });
 
-test('a project with references this reading cannot resolve keeps BuildProjectReferences in its wave', () => {
-  const s = solution([{ name: 'App', refs: ['Lib'] }, { name: 'Lib' }]);
-  const app = s.projects.get(s.byName('App').guid)!;
-  s.projects.set(s.byName('App').guid, { ...app, items: { ...app.items!, unresolvedReferences: true } });
-  expect(planWaves(s.sln, s.config, s.projects).skipReferences).toEqual([true, false]);
+test('a reference that cannot be evaluated keeps BuildProjectReferences in its wave and is reported', () => {
+  const s = solution([{ name: 'App', refs: ['Lib', { include: '$(Pkg.Trim())\\conan.vcxproj' }] }, { name: 'Lib' }]);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
+  expect(plan.skipReferences).toEqual([true, false]);
+  expect(plan.unread).toEqual([{ guid: s.byName('App').guid, include: '$(Pkg.Trim())\\conan.vcxproj' }]);
+});
+
+test('a reference whose path needs MSBuild names its project by guid', () => {
+  const s = solution([{ name: 'App', refs: [{ include: '$(Pkg.Trim())\\conan.vcxproj', guid: guid(2).toLowerCase() }] }, { name: 'Conan' }]);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
+  expect(plan.waves.map(s.names)).toEqual([['Conan'], ['App']]);
+  expect(plan.skipReferences).toEqual([true, true]);
+  expect(plan.unread).toEqual([]);
+});
+
+test('a path that names a project wins over a stale guid', () => {
+  const s = solution([{ name: 'App', refs: [{ include: 'x', path: 'C:\\s\\Lib\\Lib.vcxproj', guid: guid(3) }] }, { name: 'Lib' }, { name: 'Other', deps: ['App'] }]);
+  expect(planWaves(s.sln, s.config, s.projects, s.references).waves.map(s.names)).toEqual([['Lib'], ['App'], ['Other']]);
 });
 
 test('a dependency through a cycle of projects outside the build set is not lost', () => {
@@ -100,14 +114,14 @@ test('a dependency through a cycle of projects outside the build set is not lost
     { name: 'B' },
     { name: 'C' },
   ]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves.map(s.names)).toEqual([['B', 'C'], ['A', 'D']]);
   expect(s.names(plan.dependents(s.byName('C').guid))).toEqual(['A', 'D']);
 });
 
 test('a cycle builds everything in one wave and names the cycle', () => {
   const s = solution([{ name: 'A', deps: ['B'] }, { name: 'B', refs: ['C'] }, { name: 'C', deps: ['A'] }, { name: 'D' }]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves.map(s.names)).toEqual([['A', 'B', 'C', 'D']]);
   expect(plan.cycle).toEqual(['A', 'B', 'C', 'A']);
   expect(plan.skipReferences).toEqual([false]);
@@ -115,13 +129,13 @@ test('a cycle builds everything in one wave and names the cycle', () => {
 
 test('a single project takes itself and what it depends on', () => {
   const s = solution([{ name: 'App', refs: ['Lib'] }, { name: 'Lib', deps: ['Conan'] }, { name: 'Conan' }, { name: 'Tool' }]);
-  expect(planWaves(s.sln, s.config, s.projects, s.byName('Lib')).waves.map(s.names)).toEqual([['Conan'], ['Lib']]);
-  expect(planWaves(s.sln, s.config, s.projects, s.byName('Tool')).waves.map(s.names)).toEqual([['Tool']]);
+  expect(planWaves(s.sln, s.config, s.projects, s.references, s.byName('Lib')).waves.map(s.names)).toEqual([['Conan'], ['Lib']]);
+  expect(planWaves(s.sln, s.config, s.projects, s.references, s.byName('Tool')).waves.map(s.names)).toEqual([['Tool']]);
 });
 
 test('the dependents of a failed project, transitively', () => {
   const s = solution([{ name: 'App', refs: ['Lib'] }, { name: 'Lib', deps: ['Conan'] }, { name: 'Conan' }, { name: 'Tool' }]);
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(s.names(plan.dependents(s.byName('Conan').guid))).toEqual(['App', 'Lib']);
   expect(plan.dependents(s.byName('Tool').guid)).toEqual([]);
 });
@@ -135,7 +149,7 @@ test('a thousand projects are planned quickly', () => {
   const list: P[] = Array.from({ length: 1000 }, (_, i) => ({ name: `P${i}`, refs: i > 0 ? [`P${i - 1}`, `P${Math.floor(i / 2)}`].filter(r => r !== `P${i}`) : [] }));
   const s = solution(list);
   const start = Date.now();
-  const plan = planWaves(s.sln, s.config, s.projects);
+  const plan = planWaves(s.sln, s.config, s.projects, s.references);
   expect(plan.waves).toHaveLength(1000);
   expect(Date.now() - start).toBeLessThan(200);
 });

@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { EnvExec, EVALUATION_TIMEOUT_S } from '../debug/properties';
 import { RunChild } from '../debug/runAdapter';
 import { SettingsFs } from '../settings/settingsFile';
+import { ReferenceFs } from '../solution/projectReferences';
 import { LoaderDeps } from '../state/loader';
 import { Exec, findToolchain, ToolchainOptions, ToolchainResult } from '../toolchain/vswhere';
 import { isSolutionCandidate } from '../util/paths';
@@ -90,6 +91,9 @@ async function exists(p: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Project files and the sheets they import, for the ProjectReferences of a build. */
+export const projectFiles: ReferenceFs = { readText, exists };
 
 export const nodeFs: SettingsFs = {
   readText,

@@ -83,6 +83,8 @@ test('waves are blue, projects not built because of a failure are yellow', () =>
   expect(tokens('The project dependencies form a cycle (A → B → A); building the solution in one run.')).toEqual([
     { scope: 'token.warn-token', text: 'The project dependencies form a cycle (A → B → A); building the solution in one run.' },
   ]);
+  const unread = 'Audio: the project reference $(Pkg.Trim())\\conan.vcxproj could not be read without MSBuild; the build order does not include it.';
+  expect(tokens(unread)).toEqual([{ scope: 'token.warn-token', text: unread }]);
 });
 
 test('summary counts and ordinary lines stay plain', () => {

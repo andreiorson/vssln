@@ -58,7 +58,7 @@ test('include lists, duplicates and conditions', () => {
   expect(r.items.map(i => i.include)).toEqual(['a.cpp', 'b.cpp', 'debug.cpp']);
 });
 
-test('project references are read as resolved paths and are not files', () => {
+test('project references are not files', () => {
   const r = parseProjectItems(project(`  <ItemGroup>
     <ProjectReference Include="..\\Core\\Core.vcxproj">
       <Project>{11111111-1111-1111-1111-111111111111}</Project>
@@ -70,11 +70,7 @@ test('project references are read as resolved paths and are not files', () => {
     <ProjectReference Include="..\\core\\core.vcxproj" />
     <ProjectReference Include="$(Unknown)\\X.vcxproj" />
   </ItemGroup>`), undefined, ctx);
-  expect(r.references).toEqual(['C:\\s\\Core\\Core.vcxproj', 'C:\\s\\Deps\\Conan.vcxproj']);
-  // $(Unknown) needs MSBuild: the project has references this reading cannot see.
-  expect(r.unresolvedReferences).toBe(true);
   expect(r.items.map(i => i.include)).toEqual(['a.cpp']);
-  expect(parseProjectItems(project(''), undefined, ctx)).toMatchObject({ references: [], unresolvedReferences: false });
 });
 
 test('commented-out items and filters are not read', () => {

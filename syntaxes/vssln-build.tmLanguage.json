@@ -29,7 +29,7 @@
     },
     {
       "name": "token.warn-token",
-      "match": "^(?:Not built because .+ failed: .*|The project dependencies form a cycle .*)$"
+      "match": "^(?:Not built because .+ failed: .*|The project dependencies form a cycle .*|.+: the project reference .+ could not be read without MSBuild; .*)$"
     },
     {
       "match": "^(?:.*?)\\s*:\\s*(?:(?!fatal\\s)[A-Za-z][A-Za-z ]*?\\s)?((?:fatal\\s+)?error(?:\\s+[A-Za-z]+\\d+)?)(?=\\s*:)",

@@ -84,7 +84,7 @@ test('100 000 listed files are indexed quickly', () => {
   const projects = new Map(s.projects);
   const g = projects.get(GAME)!;
   const items = Array.from({ length: 100000 }, (_, i) => ({ itemType: 'ClCompile', include: `f${i}.cpp`, path: game('gen', `f${i}.cpp`) }));
-  projects.set(GAME, { ...g, items: { filters: [], references: [], unresolvedReferences: false, items } });
+  projects.set(GAME, { ...g, items: { filters: [], items } });
   const start = Date.now();
   const index = new FileIndex({ ...s, projects });
   expect(index.projectFor(game('gen', 'f99999.cpp'))).toBe(GAME);

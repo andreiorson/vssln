@@ -2,6 +2,14 @@
 
 All notable changes to the VS Solution extension. Versions follow the development phases; the package version goes up with every package build.
 
+## 0.5.1 — 2026-10-23
+
+### Fixed
+
+- **Build in waves sees references added by property sheets.** A `ProjectReference` that a shared `.props` adds (for example every project's reference to a conan project) did not order the waves, so such projects ran in the first wave beside the project they depend on. References are now read when a build starts the way MSBuild evaluates them for the configuration: through imported sheets and `Directory.Build.props`, with properties, environment variables, the build's global properties, conditions, `Choose` and the common path functions. A reference also names its project by the `<Project>` guid when its path needs MSBuild.
+- The output names each reference that could not be read without MSBuild (`Game: the project reference … could not be read without MSBuild; the build order does not include it.`).
+- Stop during the first moment of a build (while references are read) stops it.
+
 ## 0.5.0 — 2026-10-23
 
 ### Added

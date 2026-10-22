@@ -8,6 +8,7 @@ import { cannotBuild, NO_TOOLCHAIN, runBuild, SessionResult } from '../build/ses
 import { TreeNode } from '../solution/model';
 import { SlnProject } from '../solution/slnParser';
 import { Store } from '../state/store';
+import { projectFiles } from './host';
 
 /** Problems are pushed to VS Code at most this often during a build, and once at its end. */
 const PROBLEMS_FLUSH_MS = 250;
@@ -99,6 +100,7 @@ export class Builds implements vscode.Disposable {
           logDir: this.logDir,
           env: process.env,
           writeFile: (p, text) => fs.promises.writeFile(p, text, 'utf8'),
+          projectFiles,
           write: line => this.write(line),
           onStarted: () => {
             if (this.disposed) return;

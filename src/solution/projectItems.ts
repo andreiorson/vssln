@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { decodeXml } from '../util/xml';
 
 /** One file of a project; `path` is absent when the include could not be evaluated without MSBuild. */
 export interface ProjectItem {
@@ -12,10 +13,6 @@ export interface ProjectItems {
   items: ProjectItem[];
   /** Filter paths declared in the .filters file or named by an item, in file order. */
   filters: string[];
-  /** Absolute paths of the projects this one references (ProjectReference), once each; unevaluated ones are left out. */
-  references: string[];
-  /** A ProjectReference needed MSBuild to be resolved (an unknown macro): the project has references not listed. */
-  unresolvedReferences: boolean;
 }
 
 export interface ItemContext {
@@ -52,17 +49,6 @@ const ELEMENT = new RegExp(`<([A-Za-z_][\\w.-]*)\\b${ATTRIBUTES}(?:\\/>|>([\\s\\
 const SKIPPED = new RegExp(`<!--[\\s\\S]*?-->|<Target\\b${ATTRIBUTES}(?:\\/>|>[\\s\\S]*?<\\/Target\\s*>)`, 'g');
 const INCLUDE = /\bInclude\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 const FILTER = /<Filter>([^<]*)<\/Filter>/;
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
-
-function decodeXml(text: string): string {
-  return text.replace(/&(amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi, (m, name: string) => {
-    const lower = name.toLowerCase();
-    if (!lower.startsWith('#')) return ENTITIES[lower] ?? m;
-    const code = lower.startsWith('#x') ? parseInt(lower.slice(2), 16) : parseInt(lower.slice(1), 10);
-    // A reference to no character is kept as written rather than failing the whole solution load.
-    return code <= 0x10ffff ? String.fromCodePoint(code) : m;
-  });
-}
 
 /** Elements with an Include inside the ItemGroups of an MSBuild file, with the include list split. */
 function* includes(xml: string): Generator<{ itemType: string; include: string; body: string }> {
@@ -120,15 +106,7 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
 
   const items: ProjectItem[] = [];
   const byKey = new Map<string, ProjectItem>();
-  const references: string[] = [];
-  let unresolvedReferences = false;
   for (const { itemType, include } of includes(vcxproj)) {
-    if (itemType.toLowerCase() === 'projectreference') {
-      const resolved = evaluate(include, ctx, known);
-      if (!resolved) unresolvedReferences = true;
-      else if (!references.some(r => r.toLowerCase() === resolved.toLowerCase())) references.push(resolved);
-      continue;
-    }
     if (NOT_FILES.has(itemType.toLowerCase())) continue;
     const k = key(include);
     if (byKey.has(k)) continue;
@@ -158,5 +136,5 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
       addFilter(item.filter);
     }
   }
-  return { items, filters: filterPaths, references, unresolvedReferences };
+  return { items, filters: filterPaths };
 }

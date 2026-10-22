@@ -93,10 +93,5 @@
   <ItemGroup>
     <ClCompile Include="platform.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\Tools\Deps\Deps.vcxproj">
-      <Project>{A1000000-0000-0000-0000-00000000000D}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

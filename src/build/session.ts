@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { ReferenceFs } from '../solution/projectReferences';
 import { projectConfigFor } from '../solution/slnParser';
 import { applyBuildEvent, BuildState, counts, expectedProjects, finishBuild, skipProjects, startBuild } from '../state/build';
 import { Store } from '../state/store';
@@ -7,7 +8,7 @@ import { BuildRequest, buildArgs } from './args';
 import { msbuildEnvironment, withTrailingBackslash } from './environment';
 import { BuildEvent, OutputParser } from './outputParser';
 import { BuildRunner } from './runner';
-import { planWaves, solutionFilter, WavePlan } from './waves';
+import { planWaves, readSolutionReferences, solutionFilter, WavePlan } from './waves';
 
 export interface SessionDeps {
   store: Store;
@@ -23,6 +24,8 @@ export interface SessionDeps {
   onDiagnostic?(e: Extract<BuildEvent, { kind: 'diagnostic' }>): void;
   /** Writes a solution filter of a wave (in logDir). */
   writeFile(path: string, text: string): Promise<void>;
+  /** Reads the project files and the sheets they import, for the ProjectReferences that order the waves. */
+  projectFiles: ReferenceFs;
 }
 
 type RunResult = { exitCode: number | null; cancelled: boolean };
@@ -75,7 +78,16 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   // the projects it depends on were built (spec section 6). One wave, or a cycle, is the plain run as before.
   const wavesWanted = request.action !== 'Clean' && s.settings.build?.waves !== false;
   const filtersSupported = solutionFiltersSupported(toolchain);
-  const plan = wavesWanted && filtersSupported ? planWaves(sln, config, s.projects, request.project) : undefined;
+  // From here a Stop applies to this build, also while the references are read.
+  deps.runner.begin();
+  let plan: WavePlan | undefined;
+  if (wavesWanted && filtersSupported) {
+    const references = await readSolutionReferences(sln, config, s.projects, { properties, env }, deps.projectFiles);
+    // Reading takes a moment, in which another build may have started.
+    const late = cannotBuild(deps.store.state, deps.runner);
+    if (late) return { started: false, reason: late };
+    plan = planWaves(sln, config, s.projects, references, request.project);
+  }
   const waves = plan && !plan.cycle && plan.waves.length > 1 ? plan : undefined;
   const isCpp = (guid: string) => sln.projects.some(p => p.guid === guid && p.kind === 'vcxproj');
   const expected = waves && request.project
@@ -90,8 +102,8 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   deps.onStarted?.();
   deps.write(`${request.action} ${request.project ? request.project.name : path.win32.basename(sln.path)} (${config.name})`);
   if (plan?.cycle) deps.write(`The project dependencies form a cycle (${plan.cycle.join(' → ')}); building the solution in one run.`);
+  for (const u of plan?.unread ?? []) deps.write(`${nameOf(u.guid)}: the project reference ${u.include} could not be read without MSBuild; the build order does not include it.`);
   if (wavesWanted && !filtersSupported) deps.write('Building the solution in one run: building in waves needs MSBuild 16.7 or newer (Visual Studio 2019 16.7).');
-  deps.runner.begin();
   /** Project results of all runs, by guid (true: failed), whatever the project type. */
   const outcomes = new Map<string, boolean>();
   let startFailed = false;
@@ -178,7 +190,8 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
 
   let result: RunResult = { exitCode: null, cancelled: false };
   try {
-    result = waves ? await runWaves(waves) : await run(buildArgs({ sln, config, toolchain, request, properties, logFile }));
+    if (deps.runner.stopped) result = { exitCode: null, cancelled: true };
+    else result = waves ? await runWaves(waves) : await run(buildArgs({ sln, config, toolchain, request, properties, logFile }));
   } catch (e) {
     deps.write(`The build failed to run: ${e instanceof Error ? e.message : String(e)}`);
   } finally {

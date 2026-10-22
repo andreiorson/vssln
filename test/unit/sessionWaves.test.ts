@@ -3,6 +3,7 @@ import * as path from 'path';
 import { expect, test } from 'vitest';
 import { BuildRunner, Spawn } from '../../src/build/runner';
 import { runBuild, SessionDeps } from '../../src/build/session';
+import { ReferenceFs } from '../../src/solution/projectReferences';
 import { parseSln } from '../../src/solution/slnParser';
 import { AppState, initialState, ProjectEntry, Store } from '../../src/state/store';
 import { VsInstance } from '../../src/toolchain/vswhere';
@@ -18,10 +19,7 @@ const refs: Record<string, string[]> = { Render: ['Math'], Game: ['Render', 'Aud
 
 /** The sample with its .sln dependency (Render on Shaders) and the ProjectReferences of its projects. */
 function graphState(over: Partial<AppState> = {}): AppState {
-  const projects = new Map<string, ProjectEntry>(engine.projects.map(p => [p.guid, p.name === 'Missing' ? { exists: false } : {
-    exists: true,
-    items: { items: [], filters: [], unresolvedReferences: false, references: (refs[p.name] ?? []).map(r => byName(r).absPath) },
-  }]));
+  const projects = new Map<string, ProjectEntry>(engine.projects.map(p => [p.guid, { exists: p.name !== 'Missing' }]));
   return {
     ...initialState,
     phase: 'ready',
@@ -36,11 +34,23 @@ function graphState(over: Partial<AppState> = {}): AppState {
   };
 }
 
-function deps(store: Store, runner: BuildRunner, written: string[], files: Map<string, string>): SessionDeps {
+/** The project files of the sample, with its ProjectReferences; `extra` adds items to a project. */
+function projectFiles(extra: Record<string, string> = {}): ReferenceFs {
+  const texts = new Map(engine.projects.filter(p => p.name !== 'Missing').map(p => [p.absPath.toLowerCase(), `<Project>
+  <ItemGroup>${(refs[p.name] ?? []).map(r => `<ProjectReference Include="${byName(r).absPath}" />`).join('')}${extra[p.name] ?? ''}</ItemGroup>
+</Project>`]));
+  return {
+    readText: async p => texts.get(p.toLowerCase()),
+    exists: async p => texts.has(p.toLowerCase()),
+  };
+}
+
+function deps(store: Store, runner: BuildRunner, written: string[], files: Map<string, string>, projects = projectFiles()): SessionDeps {
   let t = 0;
   return {
     store, runner, now: () => (t += 1000), logDir: 'C:\\logs', env: {}, write: l => written.push(l),
     writeFile: async (p, text) => void files.set(p, text),
+    projectFiles: projects,
   };
 }
 
@@ -250,4 +260,26 @@ test('build.waves: false in the settings builds in one run', async () => {
   const { runner, spawned } = waveRunner(files);
   await runBuild(deps(store, runner, [], files), { action: 'Build' });
   expect(spawned.map(a => a[0])).toEqual([engine.path]);
+});
+
+test('references are read from the project files with the global properties of the build', async () => {
+  const store = new Store();
+  const depsDir = `${path.win32.dirname(byName('Deps').absPath)}\\`;
+  store.set(graphState({ settings: { msbuild: { properties: { DepsDir: depsDir } } } }));
+  const files = new Map<string, string>();
+  const { runner, spawned } = waveRunner(files);
+  await runBuild(deps(store, runner, [], files, projectFiles({ Audio: '<ProjectReference Include="$(DepsDir)Deps.vcxproj" />' })), { action: 'Build' });
+  expect(filterOf(files, spawned[0])).toContain('Deps');
+  expect(filterOf(files, spawned[0])).not.toContain('Audio');
+  expect(filterOf(files, spawned[1])).toContain('Audio');
+});
+
+test('a reference that cannot be read without MSBuild is named in the output', async () => {
+  const store = new Store();
+  store.set(graphState());
+  const files = new Map<string, string>();
+  const { runner } = waveRunner(files);
+  const written: string[] = [];
+  await runBuild(deps(store, runner, written, files, projectFiles({ Audio: '<ProjectReference Include="$(Pkg.Trim())\\conan.vcxproj" />' })), { action: 'Build' });
+  expect(written).toContain('Audio: the project reference $(Pkg.Trim())\\conan.vcxproj could not be read without MSBuild; the build order does not include it.');
 });

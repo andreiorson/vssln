@@ -2,7 +2,7 @@
   "name": "vssln",
   "displayName": "VS Solution",
   "description": "Visual Studio C++ solutions in VS Code: solution panel, build, debug and IntelliSense.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "local",
   "license": "UNLICENSED",
   "private": true,
