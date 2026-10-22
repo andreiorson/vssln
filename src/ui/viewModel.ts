@@ -406,7 +406,7 @@ export function statusBarItems(s: AppState): StatusBarEntry[] {
   if (sense.total > 0 && s.intellisense.running) {
     items.push({ id: 'intellisense', text: `$(sync~spin) IntelliSense ${sense.ready}/${sense.total}`, tooltip: `Computing IntelliSense data: ${sense.ready} of ${sense.total} projects ready`, command: 'vssln.showLog' });
   } else if (sense.failed > 0) {
-    items.push({ id: 'intellisense', text: `$(warning) IntelliSense: ${sense.failed} failed`, tooltip: `IntelliSense data of ${plural(sense.failed, 'project')} could not be computed. Click for the log.`, command: 'vssln.showLog' });
+    items.push({ id: 'intellisense', text: `$(warning) IntelliSense ${sense.failed} failed`, tooltip: `IntelliSense data of ${plural(sense.failed, 'project')} could not be computed. Click for the log.`, command: 'vssln.showLog' });
   }
   const b = s.build;
   if (b.status === 'running') {

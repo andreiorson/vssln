@@ -17,6 +17,8 @@ export interface ParsedLine {
 export interface OutputOptions {
   /** "Release x64" for a project's header line; undefined leaves the configuration out. */
   configurationOf?: (projectPath: string) => string | undefined;
+  /** Whether a target is the work of this build (a Rebuild also calls Clean on references, which is not). */
+  counts?: (target: WorkTarget) => boolean;
 }
 
 // MSBuild prefixes the first line of a block with the id of the project instance that wrote it: "6>" or "5:2>".
@@ -30,8 +32,11 @@ const HIDDEN = [
   /^[A-Za-z_][\w.]*:$/,
   // Tool command lines ("C:\Program Files\...\CL.exe /c ...") and the object files echoed after link and lib.
   /^(?:"[^"]*\.exe"|[A-Za-z]:\\.*?\.exe|[\w.-]+\.exe)(?:\s|$)/i,
-  /^[A-Za-z]:\\[^"<>|]*\.(?:obj|lib|res)$/i,
-  /^(?:Deleting file |Touching |Creating "|Creating directory |Copying file |Skipping target |All outputs are up-to-date\.|Structured output is enabled|Reading library manifest file |Adding module source |Building solution configuration |The project ".*" is not selected for building|Build started \d)/,
+  /^[^\s"<>|]+\.(?:obj|lib|res)$/i,
+  // The solution's own start line, and the batch wrapper Visual Studio puts around build events.
+  /^Project ".*" on node \d+ \(.*\)\.$/,
+  /^(?:setlocal|endlocal\b.*|exit \/b %1|if %errorlevel% neq 0 goto :\w+|:(?:VCEnd|cmEnd|cmErrorLevel|cmDone))$/i,
+  /^(?:Deleting file|Touching |Creating "|Creating directory |Copying file |Skipping target |All outputs are up-to-date\.|Structured output is enabled|Reading library manifest file |Adding module source |Building solution configuration |The project ".*" is not selected for building|Build started \d)/,
 ];
 const FINISHED = /^Done Building Project "([^"]+)" \((.*?)\)( -- FAILED)?\.$/;
 // Only these targets are real work; references also call GetTargetPath and the like.
@@ -86,7 +91,7 @@ export class OutputParser {
       const target = workTarget(targets);
       if (!isProject(projectPath) || !target) return { events: [] };
       const events: BuildEvent[] = [{ kind: 'projectStarted', path: projectPath, target }];
-      if (this.numbers.has(id)) return { events };
+      if (this.numbers.has(id) || this.options.counts?.(target) === false) return { events };
       const n = this.numbers.size + 1;
       this.numbers.set(id, n);
       this.numbersByPath.set(projectPath.toLowerCase(), n);

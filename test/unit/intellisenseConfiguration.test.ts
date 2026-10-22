@@ -36,6 +36,17 @@ test('language standards of C++ and C', () => {
   expect(toConfiguration('/c /TP /std:c++20', [], 'x64', 'C:\\p\\a.c').standard).toBe('c++20');
 });
 
+test('C++23 preview and standards newer than cpptools knows map to c++23', () => {
+  expect(toConfiguration('/std:c++23preview', [], 'x64').standard).toBe('c++23');
+  expect(toConfiguration('/std:c++26', [], 'x64').standard).toBe('c++23');
+});
+
+test('relative include directories and forced includes are relative to the project folder, as cl sees them', () => {
+  const c = toConfiguration('/Iinc /I ..\\..\\external\\include /external:Ivendor /I C:\\abs /FIpre.h /FI C:\\abs\\f.h', [], 'x64', undefined, 'C:\\repo\\src\\Game');
+  expect(c.includePath).toEqual(['C:\\repo\\src\\Game\\inc', 'C:\\repo\\external\\include', 'C:\\repo\\src\\Game\\vendor', 'C:\\abs']);
+  expect(c.forcedInclude).toEqual(['C:\\repo\\src\\Game\\pre.h', 'C:\\abs\\f.h']);
+});
+
 test('the IntelliSense mode follows the platform', () => {
   expect(toConfiguration('', [], 'Win32').intelliSenseMode).toBe('windows-msvc-x86');
   expect(toConfiguration('', [], 'x86').intelliSenseMode).toBe('windows-msvc-x86');

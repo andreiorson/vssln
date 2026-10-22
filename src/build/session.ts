@@ -62,6 +62,7 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
       const mapping = project && projectConfigFor(sln, project.guid, config.name);
       return mapping ? `${mapping.configuration} ${mapping.platform}` : undefined;
     },
+    counts: target => counts(request.action, target),
   });
   let result: { exitCode: number | null; cancelled: boolean } = { exitCode: null, cancelled: false };
   try {

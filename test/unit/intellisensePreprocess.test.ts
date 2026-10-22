@@ -42,7 +42,26 @@ test('commented-out imports: awaited only when they resolve to a file that does 
   ].join('\n');
   const { inputs, awaited } = parsePreprocess(xml, ctx, p => p.endsWith('Existing.props'));
   expect(inputs).toEqual(['C:\\VS\\Microsoft.Cpp.props']);
-  expect(awaited).toEqual(['C:\\VS\\Imports.props', 'C:\\VS\\Later.props', 'D:\\visualizer\\samples\\Engine\\Directory.Solution.props']);
+  expect(awaited.filter(p => !/Directory\.Build\./.test(p))).toEqual(['C:\\VS\\Imports.props', 'C:\\VS\\Later.props', 'D:\\visualizer\\samples\\Engine\\Directory.Solution.props']);
+});
+
+test('Directory.Build.props and .targets in the project folder or above are awaited while they do not exist', () => {
+  // The common targets import them through $(DirectoryBuildPropsPath), which -preprocess leaves unexpanded.
+  const existing = 'D:\\visualizer\\samples\\Directory.Build.props';
+  const { awaited } = parsePreprocess(banner('C:\\VS\\Microsoft.Common.props'), ctx, p => p === existing);
+  expect(awaited).toEqual([
+    'D:\\visualizer\\samples\\Engine\\Graphics\\Render\\Directory.Build.props',
+    'D:\\visualizer\\samples\\Engine\\Graphics\\Render\\Directory.Build.targets',
+    'D:\\visualizer\\samples\\Engine\\Graphics\\Directory.Build.props',
+    'D:\\visualizer\\samples\\Engine\\Graphics\\Directory.Build.targets',
+    'D:\\visualizer\\samples\\Engine\\Directory.Build.props',
+    'D:\\visualizer\\samples\\Engine\\Directory.Build.targets',
+    'D:\\visualizer\\samples\\Directory.Build.targets',
+    'D:\\visualizer\\Directory.Build.props',
+    'D:\\visualizer\\Directory.Build.targets',
+    'D:\\Directory.Build.props',
+    'D:\\Directory.Build.targets',
+  ]);
 });
 
 test('arguments: evaluation only, into a file', () => {

@@ -84,7 +84,7 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Switch to `Debug|x64`: a new pass runs; switching back to `Release|x64` takes everything from the cache.
 - [ ] Start a Build while IntelliSense computes: the row says `paused for the build`; after the build the pass finishes.
 - [ ] Recompute IntelliSense (the ↻ button on the IntelliSense row, or the Status menu) computes everything again; Recompute IntelliSense for Project in a project's context menu computes only that project.
-- [ ] Break a project for MSBuild (for example an `<Import Project="missing.props" />` in `Audio.vcxproj`): Audio shows `IntelliSense failed` with the MSBuild output in its tooltip, the row shows `1 failed`, the status bar shows `IntelliSense: 1 failed`; the other projects are ready. Undo.
+- [ ] Break a project for MSBuild (for example an `<Import Project="missing.props" />` in `Audio.vcxproj`): Audio shows `IntelliSense failed` with the MSBuild output in its tooltip, the row shows `1 failed`, the status bar shows `IntelliSense 1 failed`; the other projects are ready. Undo.
 
 ## Toolchain
 

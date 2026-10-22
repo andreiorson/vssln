@@ -53,7 +53,7 @@ test('all ready: a green check, no status bar item', () => {
 test('failures: a warning in the row and the status bar', () => {
   const st = withIntelliSense(false, { [GAME]: { status: 'ready' }, [MATH]: { status: 'failed', message: 'error MSB4019' } });
   expect(row(st)).toMatchObject({ description: '1 failed · 1 / 2 ready', icon: 'warning', iconColor: 'list.warningForeground' });
-  expect(bar(st)).toEqual({ id: 'intellisense', text: '$(warning) IntelliSense: 1 failed', tooltip: 'IntelliSense data of 1 project could not be computed. Click for the log.', command: 'vssln.showLog' });
+  expect(bar(st)).toEqual({ id: 'intellisense', text: '$(warning) IntelliSense 1 failed', tooltip: 'IntelliSense data of 1 project could not be computed. Click for the log.', command: 'vssln.showLog' });
 });
 
 test('project rows tell their IntelliSense state while a pass runs; a failure stays with its output', () => {

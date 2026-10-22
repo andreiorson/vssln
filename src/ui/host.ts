@@ -30,7 +30,8 @@ export const envExec: EnvExec = (file, args, env, opts = {}) =>
     const timeout = opts.timeoutMs ?? EVALUATION_TIMEOUT_S * 1000;
     execFile(file, args, { env, windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout, signal: opts.signal }, (error, stdout, stderr) => {
       if (error && typeof error.code !== 'number') {
-        reject(error);
+        // A timeout or a failed start: what MSBuild printed until then goes with the error.
+        reject(Object.assign(error, { stdout, stderr }));
         return;
       }
       resolve({ code: error ? (error.code as number) : 0, stdout, stderr });

@@ -5,7 +5,6 @@ import { AppState, idleIntelliSense, ProjectIntelliSense, Store } from '../state
 import { pathKey } from '../util/paths';
 import { CacheStore, cacheFileName, cacheKey, Hasher, isFresh } from './cache';
 import { intellisenseArgs, parseDump, ProjectDump } from './dump';
-import { FileIndex } from './fileIndex';
 import { parsePreprocess, preprocessArgs } from './preprocess';
 import { Scheduler } from './scheduler';
 
@@ -41,7 +40,9 @@ interface Data {
   /** "Release|x64": data of another project configuration is dropped. */
   config: string;
   dump: ProjectDump;
+  /** Path keys of the files the evaluation read, and of those whose appearing would change it. */
   inputs: Set<string>;
+  awaited: Set<string>;
 }
 
 function tail(text: string): string {
@@ -62,6 +63,10 @@ export class IntelliSenseEngine {
   private readonly data = new Map<string, Data>();
   private priority: string[] = [];
   private paused = false;
+  /** Projects to compute with MSBuild whatever the cache says (Recompute). */
+  private readonly forced = new Set<string>();
+  /** The latest run of each project: an older one that ends late must not touch its state. */
+  private readonly runs = new Map<string, object>();
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly store: Store, private readonly deps: EngineDeps, private readonly targetsFile: string) {
@@ -110,35 +115,41 @@ export class IntelliSenseEngine {
     this.whenIdle();
   }
 
-  /** Drops the cache entries of one project (or all) and computes them again. */
+  /**
+   * Computes one project (or all) again with MSBuild, whatever the cache says; a running one starts over. The cache
+   * entries are removed too, and a removal that fails (a locked file) changes nothing.
+   */
   recompute(projectGuid?: string): void {
     const targets = this.targets(this.store.state);
     const chosen = projectGuid ? targets.filter(t => t.project.guid === projectGuid) : targets;
-    const removals = chosen.map(t => this.deps.store.remove(cacheFileName(t.project.absPath, t.configuration, t.platform)));
-    void Promise.all(removals).then(() => {
-      if (!projectGuid) {
-        this.start();
-        return;
-      }
-      this.hasher = new Hasher(this.deps.read);
-      this.requeue(chosen.map(t => t.project.guid));
-    });
-    if (projectGuid) this.setProjects(chosen.map(t => t.project.guid), { status: 'waiting' });
+    for (const t of chosen) this.forced.add(t.project.guid);
+    for (const t of chosen) {
+      this.deps.store.remove(cacheFileName(t.project.absPath, t.configuration, t.platform)).catch(e => this.deps.log(`${t.project.name}: the cache entry could not be removed: ${e instanceof Error ? e.message : String(e)}`));
+    }
+    if (!projectGuid) {
+      this.start();
+      return;
+    }
+    this.hasher = new Hasher(this.deps.read);
+    this.requeue(chosen.map(t => t.project.guid));
   }
 
-  /** Files changed on disk: the projects whose data was computed from them are checked against the cache again. */
+  /**
+   * Files changed on disk: the projects computed from them (or waiting for them to appear) are checked against the
+   * cache again, and the running ones start over, since MSBuild may have read the file before it changed.
+   */
   recheck(files: string[]): void {
-    const keys = new Set(files.map(pathKey));
-    const guids = [...this.data].filter(([, d]) => [...keys].some(k => d.inputs.has(k))).map(([guid]) => guid);
+    const keys = files.map(pathKey);
+    const affected = [...this.data].filter(([, d]) => keys.some(k => d.inputs.has(k) || d.awaited.has(k))).map(([guid]) => guid);
+    const guids = [...new Set([...affected, ...(this.scheduler?.active ?? [])])];
     if (guids.length === 0) return;
     this.hasher = new Hasher(this.deps.read);
     this.requeue(guids);
   }
 
-  /** The projects of these files are computed first, now and in later passes. */
-  prioritize(files: string[]): void {
-    const index = new FileIndex(this.store.state);
-    this.priority = [...new Set(files.flatMap(f => index.projectFor(f) ?? []))];
+  /** These projects (those of the open editors) are computed first, now and in later passes. */
+  prioritize(projectGuids: string[]): void {
+    this.priority = [...new Set(projectGuids)];
     this.scheduler?.prioritize(this.priority);
   }
 
@@ -180,7 +191,7 @@ export class IntelliSenseEngine {
     if (!this.scheduler) return;
     this.setProjects(guids, { status: 'waiting' });
     this.store.update(st => ({ ...st, intellisense: { ...st.intellisense, running: true } }));
-    this.scheduler.enqueue(guids);
+    this.scheduler.restart(guids);
     this.whenIdle();
   }
 
@@ -232,22 +243,26 @@ export class IntelliSenseEngine {
     const name = cacheFileName(projectPath, target.configuration, target.platform);
     const config = `${target.configuration}|${target.platform}`;
     const hasher = this.hasher;
+    const run = {};
+    this.runs.set(guid, run);
+    const forced = this.forced.has(guid);
     try {
-      const cached = await this.deps.store.read(name);
+      const cached = forced ? undefined : await this.deps.store.read(name);
       check();
       if (cached && (await isFresh(cached, key, hasher, this.deps.exists))) {
         check();
-        this.accept(guid, { config, dump: cached.dump, inputs: new Set(cached.inputs.map(i => pathKey(i.path))) }, { status: 'ready', fromCache: true });
+        const data = { config, dump: cached.dump, inputs: new Set(cached.inputs.map(i => pathKey(i.path))), awaited: new Set(cached.awaited.map(pathKey)) };
+        this.accept(guid, data, { status: 'ready', fromCache: true });
         this.deps.log(`${target.project.name}: from cache`);
         return;
       }
       this.setProjects([guid], { status: 'computing' });
       const env = msbuildEnvironment({ settings: s.settings, folder: s.folder ?? sln.dir, solutionDir: withTrailingBackslash(sln.dir), configuration: s.configuration! }, this.deps.env);
-      const run = await this.deps.exec(toolchain.msbuildPath, intellisenseArgs(input), env, { signal, timeoutMs: RUN_TIMEOUT_MS });
+      const result = await this.deps.exec(toolchain.msbuildPath, intellisenseArgs(input), env, { signal, timeoutMs: RUN_TIMEOUT_MS });
       check();
-      const dump = run.code === 0 ? parseDump(run.stdout) : undefined;
+      const dump = result.code === 0 ? parseDump(result.stdout) : undefined;
       if (!dump) {
-        this.fail(guid, target.project.name, tail(`${run.stdout}\n${run.stderr}`) || `MSBuild exited with code ${run.code}.`);
+        this.fail(guid, target.project.name, tail(`${result.stdout}\n${result.stderr}`) || `MSBuild exited with code ${result.code}.`);
         return;
       }
       const out = this.deps.tempFile();
@@ -267,30 +282,45 @@ export class IntelliSenseEngine {
       const { inputs, awaited } = parsePreprocess(xml, { projectPath, solutionDir: withTrailingBackslash(sln.dir) }, this.deps.existsSync);
       const hashed = await Promise.all(inputs.map(async p => ({ path: p, sha1: (await hasher.sha1(p)) ?? '' })));
       check();
-      await this.deps.store.write(name, { key, dump, inputs: hashed, awaited });
+      try {
+        await this.deps.store.write(name, { key, dump, inputs: hashed, awaited });
+      } catch (e) {
+        // A locked cache folder (an antivirus scan) costs the next load a recompute, not this result.
+        this.deps.log(`${target.project.name}: the cache entry could not be written: ${e instanceof Error ? e.message : String(e)}`);
+      }
       check();
+      this.forced.delete(guid);
       const seconds = Math.round((this.deps.now() - started) / 100) / 10;
-      this.accept(guid, { config, dump, inputs: new Set(inputs.map(pathKey)) }, { status: 'ready', fromCache: false, seconds });
+      this.accept(guid, { config, dump, inputs: new Set(inputs.map(pathKey)), awaited: new Set(awaited.map(pathKey)) }, { status: 'ready', fromCache: false, seconds });
       this.deps.log(`${target.project.name}: ${seconds} s`);
     } catch (e) {
-      if (e instanceof Stale || (generation === this.generation && signal.aborted)) {
-        // Paused for a build: the project waits for its turn again. A cancelled pass leaves no trace.
-        if (generation === this.generation) this.setProjects([guid], { status: 'waiting' });
+      const current = generation === this.generation && this.runs.get(guid) === run;
+      if (e instanceof Stale || signal.aborted) {
+        // Paused for a build or started over: the project waits for its turn again. A cancelled pass, or a run that
+        // a newer one replaced, leaves no trace.
+        if (current) this.setProjects([guid], { status: 'waiting' });
         return;
       }
-      if (generation !== this.generation) return;
-      this.fail(guid, target.project.name, e instanceof Error ? e.message : String(e));
+      if (!current) return;
+      const killed = (e as { killed?: boolean }).killed;
+      const output = e as { stdout?: string; stderr?: string };
+      const message = killed
+        ? [`MSBuild did not finish in ${RUN_TIMEOUT_MS / 1000} s.`, tail(`${output.stdout ?? ''}\n${output.stderr ?? ''}`)].filter(Boolean).join('\n')
+        : e instanceof Error ? e.message : String(e);
+      this.fail(guid, target.project.name, message);
     }
   }
 
   private accept(guid: string, data: Data, status: ProjectIntelliSense): void {
+    const before = this.data.get(guid);
     this.data.set(guid, data);
     this.setProjects([guid], status);
-    this.fire();
+    // A reload that finds the same data (from the cache) must not make cpptools ask about every open file again.
+    if (!before || before.config !== data.config || JSON.stringify(before.dump) !== JSON.stringify(data.dump)) this.fire();
   }
 
   private fail(guid: string, name: string, message: string): void {
     this.setProjects([guid], { status: 'failed', message });
-    this.deps.log(`${name}: failed\n${message}`);
+    this.deps.log(`${name}: failed, see below\n${message}`);
   }
 }

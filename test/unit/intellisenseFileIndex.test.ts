@@ -68,6 +68,14 @@ test('a header in no project and no project folder takes a project whose include
   expect(new FileIndex(s).configurationFor('C:\\VC\\include\\vector', new Map([[GAME, gameDump]]))).toBeUndefined();
 });
 
+test('relative include directories of a project are read from its folder, also for shared headers', () => {
+  const relative = new Map([[MATH, { ...mathDump, records: [{ files: [], commandLine: '/I ..\\include /D REL', projectDefault: true }] }]]);
+  const header = path.join(WORKSPACE, 'Core', 'include', 'engine', 'math.h');
+  const c = new FileIndex(s).configurationFor(header, relative)!;
+  expect(c.defines).toEqual(['REL']);
+  expect(c.includePath).toEqual([path.join(WORKSPACE, 'Core', 'include')]);
+});
+
 test('no answer for a project without data', () => {
   expect(new FileIndex(s).configurationFor(game('main.cpp'), new Map())).toBeUndefined();
 });

@@ -71,6 +71,19 @@ test('pause aborts running items and puts them first; nothing starts until resum
   expect(h.log.at(-1)).toBe('start c');
 });
 
+test('restart aborts a running item and runs it again first; a queued one moves first', async () => {
+  const h = harness(1);
+  h.scheduler.enqueue(['a', 'b', 'c']);
+  await h.tick();
+  h.scheduler.restart(['c', 'a']);
+  await h.tick();
+  expect(h.log).toEqual(['start a', 'abort a', 'start c']);
+  await h.finish('c');
+  expect(h.log.at(-1)).toBe('start a');
+  await h.finish('a');
+  expect(h.log.at(-1)).toBe('start b');
+});
+
 test('cancel aborts and drops everything; idle resolves', async () => {
   const h = harness(1);
   h.scheduler.enqueue(['a', 'b']);

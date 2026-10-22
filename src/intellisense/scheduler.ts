@@ -36,6 +36,22 @@ export class Scheduler<T> {
     this.queue = [...first, ...this.queue.filter(q => !first.includes(q))];
   }
 
+  /**
+   * Runs these items again, first: a running one is aborted (its inputs may have changed under it), a queued one moves
+   * to the front, others are queued at the front.
+   */
+  restart(items: T[]): void {
+    const ids = items.map(this.id);
+    const aborted = ids.flatMap(id => {
+      const running = this.running.get(id);
+      if (running) this.running.delete(id);
+      return running ? [running] : [];
+    });
+    this.queue = [...items, ...this.queue.filter(q => !ids.includes(this.id(q)))];
+    for (const r of aborted) r.controller.abort();
+    this.pump();
+  }
+
   pause(): void {
     this.paused = true;
     const aborted = [...this.running.values()];
@@ -55,6 +71,11 @@ export class Scheduler<T> {
     this.queue = [];
     for (const r of aborted) r.controller.abort();
     this.settle();
+  }
+
+  /** The ids of the items running now. */
+  get active(): string[] {
+    return [...this.running.keys()];
   }
 
   /** Resolves when nothing is queued or running (at once if that is so now). */

@@ -93,8 +93,12 @@ export function registerIntelliSense(context: vscode.ExtensionContext, store: St
     provideFolderBrowseConfiguration: async () => null,
     dispose: () => undefined,
   };
+  // Set on deactivation: a coalesced notification or a queued pass must not run after it.
+  let disposed = false;
   // cpptools asks again about every open file after this; once a second is enough while projects keep arriving.
-  const changed = coalesce(() => cpptools?.didChangeCustomConfiguration(provider), 1000);
+  const changed = coalesce(() => {
+    if (!disposed) cpptools?.didChangeCustomConfiguration(provider);
+  }, 1000);
   const dumpsChanged = engine.onDidChangeDumps(() => {
     dumps = engine.dumps();
     changed();
@@ -104,6 +108,7 @@ export function registerIntelliSense(context: vscode.ExtensionContext, store: St
     try {
       const extension = vscode.extensions.getExtension<{ getApi?(version: number): CppToolsApi }>('ms-vscode.cpptools');
       const exports = extension ? (extension.isActive ? extension.exports : await extension.activate()) : undefined;
+      if (disposed) return;
       cpptools = exports?.getApi?.(CPPTOOLS_API_VERSION);
       if (!cpptools) {
         log.warn('IntelliSense: the C/C++ extension (ms-vscode.cpptools) is not available, so its IntelliSense gets no data from the solution.');
@@ -116,6 +121,14 @@ export function registerIntelliSense(context: vscode.ExtensionContext, store: St
     }
   })();
 
+  // The projects of the active and the visible editors go first.
+  const prioritize = () => {
+    const active = vscode.window.activeTextEditor?.document.uri;
+    const files = [active, ...vscode.window.visibleTextEditors.map(e => e.document.uri)].flatMap(u => (u?.scheme === 'file' ? [u.fsPath] : []));
+    const index = fileIndex();
+    engine.prioritize(files.flatMap(f => index.projectFor(f) ?? []));
+  };
+
   // A new pass for every reload (solution, configuration, projects, toolchain or settings changed); none for the
   // updates the engine and builds make themselves. A build pauses the pass.
   const passKey = (s: AppState) => [s.phase, s.solution, s.configuration, s.projects, s.toolchain, s.settings];
@@ -123,10 +136,20 @@ export function registerIntelliSense(context: vscode.ExtensionContext, store: St
   let building = false;
   let lastIndex: unknown[] = [];
   const onState = (s: AppState) => {
+    // Another startup project can change which project answers for a shared file; a newly loaded solution knows
+    // the projects of the editors restored at startup.
+    const ik = indexKey(s);
+    if (ik.some((k, i) => k !== lastIndex[i])) {
+      lastIndex = ik;
+      prioritize();
+      changed();
+    }
     const key = passKey(s);
     if (key.some((k, i) => k !== lastPass[i])) {
       lastPass = key;
-      queueMicrotask(() => engine.start());
+      queueMicrotask(() => {
+        if (!disposed) engine.start();
+      });
     }
     const nowBuilding = s.build.status === 'running';
     if (nowBuilding !== building) {
@@ -134,22 +157,9 @@ export function registerIntelliSense(context: vscode.ExtensionContext, store: St
       if (building) engine.pause();
       else engine.resume();
     }
-    // Another startup project can change which project answers for a shared file.
-    const ik = indexKey(s);
-    if (ik.some((k, i) => k !== lastIndex[i])) {
-      lastIndex = ik;
-      changed();
-    }
   };
   const stateSubscription = store.onDidChange(onState);
   onState(store.state);
-
-  const prioritize = () => {
-    const active = vscode.window.activeTextEditor?.document.uri;
-    const files = [active, ...vscode.window.visibleTextEditors.map(e => e.document.uri)].flatMap(u => (u?.scheme === 'file' ? [u.fsPath] : []));
-    engine.prioritize(files);
-  };
-  prioritize();
 
   // Property sheets in the workspace: the projects that read them are checked again (by content hash).
   const sheets = new Set<string>();
@@ -177,6 +187,7 @@ export function registerIntelliSense(context: vscode.ExtensionContext, store: St
     }),
     {
       dispose: () => {
+        disposed = true;
         recheck.cancel();
         stateSubscription.dispose();
         dumpsChanged.dispose();

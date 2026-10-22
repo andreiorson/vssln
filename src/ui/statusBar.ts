@@ -6,6 +6,7 @@ const NAMES: Record<string, string> = {
   configuration: 'VS Solution configuration',
   startup: 'VS Solution startup project',
   build: 'VS Solution build',
+  intellisense: 'VS Solution IntelliSense',
 };
 
 export class StatusBar implements vscode.Disposable {

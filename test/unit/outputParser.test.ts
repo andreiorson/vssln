@@ -110,6 +110,37 @@ test('display lines', () => {
   expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\Tool.vcxproj" (8) on node 7 (Clean target(s)).').display).toBe('3>------ Clean started: Project: Tool ------');
 });
 
+test('more bookkeeping is hidden: relative object files, the solution start, the batch wrapper of build events', () => {
+  const p = new OutputParser();
+  expect(p.push('     1>Project "C:\\a\\E.sln" on node 1 (Rebuild target(s)).').display).toBeUndefined();
+  p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\P.vcxproj" (5) on node 1 (default targets).');
+  p.push('     5>PostBuildEvent:');
+  for (const line of [
+    '         P\\x64\\Release\\b.obj',
+    '         x64\\Release\\P.res',
+    '         setlocal',
+    '         :VCEnd',
+    '         if %errorlevel% neq 0 goto :VCEnd',
+    '         endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone',
+    '         :cmEnd',
+    '         :cmErrorLevel',
+    '         exit /b %1',
+    '         :cmDone',
+  ]) {
+    expect(p.push(line).display, line).toBeUndefined();
+  }
+  expect(p.push('         copied assets').display).toBe('1>copied assets');
+  expect(p.push('         Note: including file: x.h').display).toBe('1>Note: including file: x.h');
+});
+
+test('only the work of the action gets a number and a header: a Clean that a Rebuild calls on the side does not', () => {
+  const p = new OutputParser({ counts: target => target === 'Rebuild' });
+  expect(p.push('     4>Project "C:\\a\\G.vcxproj" (4) is building "C:\\a\\R.vcxproj" (10) on node 1 (Clean target(s)).').display).toBeUndefined();
+  expect(p.push('         Deleting nothing').display).toBe('Deleting nothing');
+  expect(p.push('     1>Project "C:\\a\\E.sln" (1) is building "C:\\a\\R.vcxproj" (10:2) on node 1 (Rebuild target(s)).').display).toBe('1>------ Rebuild All started: Project: R ------');
+  expect(p.numberOf('C:\\a\\R.vcxproj')).toBe(1);
+});
+
 test('the output reads like Visual Studio: progress kept, MSBuild bookkeeping hidden', () => {
   const parser = new OutputParser({ configurationOf: () => 'Release x64' });
   const display = readFixture('msbuild/project-rebuild.log').split(/\r?\n/).flatMap(l => parser.push(l).display ?? []);

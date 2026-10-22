@@ -52,5 +52,14 @@ export function parsePreprocess(xml: string, ctx: { projectPath: string; solutio
     const absolute = path.win32.resolve(dir, resolved);
     if (!exists(absolute)) add(awaited, absolute);
   }
+  // The common props and targets look for these upward from the project through $(DirectoryBuildPropsPath), which
+  // -preprocess leaves unexpanded: creating one in the project folder or above changes the result.
+  for (let dir = path.win32.dirname(ctx.projectPath); ; dir = path.win32.dirname(dir)) {
+    for (const name of ['Directory.Build.props', 'Directory.Build.targets']) {
+      const candidate = path.win32.join(dir, name);
+      if (!exists(candidate)) add(awaited, candidate);
+    }
+    if (path.win32.dirname(dir) === dir) break;
+  }
   return { inputs, awaited };
 }

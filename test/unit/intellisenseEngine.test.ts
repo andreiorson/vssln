@@ -19,6 +19,12 @@ interface Options {
   gate?: { project: string; ignoreAbort?: boolean; flag?: string };
   cores?: number;
   state?: (s: AppState) => AppState;
+  /** Projects whose MSBuild run times out. */
+  timeout?: string[];
+  writeFails?: boolean;
+  removeFails?: boolean;
+  /** The first cache read takes this long. */
+  slowFirstRead?: number;
 }
 
 async function setup(o: Options = {}, shared?: { files: Map<string, string>; cache: Map<string, CacheEntry> }) {
@@ -33,10 +39,20 @@ async function setup(o: Options = {}, shared?: { files: Map<string, string>; cac
   let release: () => void = () => {};
   let gated = false;
   let temp = 0;
+  let reads = 0;
   const cacheStore: CacheStore = {
-    read: async n => cache.get(n),
-    write: async (n, e) => void cache.set(n, e),
-    remove: async n => void cache.delete(n),
+    read: async n => {
+      if (o.slowFirstRead && ++reads === 1) await new Promise(r => setTimeout(r, o.slowFirstRead));
+      return cache.get(n);
+    },
+    write: async (n, e) => {
+      if (o.writeFails) throw Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM' });
+      cache.set(n, e);
+    },
+    remove: async n => {
+      if (o.removeFails) throw new Error('EBUSY: resource busy or locked');
+      cache.delete(n);
+    },
   };
   const deps: EngineDeps = {
     exec: async (_file, args, _env, opts) => {
@@ -57,6 +73,7 @@ async function setup(o: Options = {}, shared?: { files: Map<string, string>; cac
           if (!o.gate!.ignoreAbort) opts?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
         });
       }
+      if (o.timeout?.includes(name)) throw Object.assign(new Error(`Command failed: C:\\VS\\MSBuild.exe ${args.join(' ')}`), { killed: true, stdout: 'partial output\n', stderr: '' });
       if (o.fail?.includes(name)) return { code: 1, stdout: 'Build started.\nerror MSB4019: The imported project was not found.\n', stderr: '' };
       const dir = path.win32.dirname(project);
       return { code: 0, stdout: `  VSSLN|CL|true|${dir}\\a.cpp|/c /D ${flag}\n  VSSLN|IncludePath|C:\\inc\n  VSSLN|ExternalIncludePath|\n`, stderr: '' };
@@ -204,10 +221,87 @@ test('a changed file re-checks the projects that read it; the others stay untouc
 
 test('projects of open files go first', async () => {
   const h = await setup({ cores: 2 });
-  h.engine.prioritize([path.join(WORKSPACE, 'Core', 'Render', 'r.cpp')]);
+  h.engine.prioritize([RENDER]);
   h.engine.start();
   await done(h.engine);
   expect(h.runs[0]).toBe('Render:cl');
+});
+
+test('a timeout says how long MSBuild ran and keeps what it printed, not the command line', async () => {
+  const h = await setup({ timeout: ['Math'] });
+  h.engine.start();
+  await done(h.engine);
+  expect(h.status(MATH)!.status).toBe('failed');
+  expect(h.status(MATH)!.message).toBe('MSBuild did not finish in 300 s.\npartial output');
+  expect(h.log).toContain('Math: failed, see below\nMSBuild did not finish in 300 s.\npartial output');
+});
+
+test('a cache entry that cannot be written does not lose the data', async () => {
+  const h = await setup({ writeFails: true });
+  h.engine.start();
+  await done(h.engine);
+  expect(h.status(MATH)!.status).toBe('ready');
+  expect(h.engine.dumps().has(MATH)).toBe(true);
+  expect(h.log.some(l => l.includes('EPERM'))).toBe(true);
+});
+
+test('a reload that changes nothing does not make cpptools ask again', async () => {
+  const h = await setup();
+  let fired = 0;
+  h.engine.onDidChangeDumps(() => fired++);
+  h.engine.start();
+  await done(h.engine);
+  expect(fired).toBe(3);
+  h.engine.start();
+  await done(h.engine);
+  expect(h.status(GAME)!.fromCache).toBe(true);
+  expect(fired).toBe(3);
+});
+
+test('a Directory.Build.props that appears re-checks the projects below it', async () => {
+  const h = await setup();
+  h.engine.start();
+  await done(h.engine);
+  h.runs.length = 0;
+  const props = path.join(WORKSPACE, 'Game', 'Directory.Build.props');
+  h.files.set(props, '<Project/>');
+  h.engine.recheck([props]);
+  await done(h.engine);
+  expect(h.runs.filter(r => r.endsWith(':cl'))).toEqual(['Game:cl']);
+});
+
+test('pause and resume at once leave no project waiting', async () => {
+  const h = await setup({ slowFirstRead: 20, cores: 2 });
+  h.engine.start();
+  await new Promise(r => setTimeout(r, 0));
+  h.engine.pause();
+  h.engine.resume();
+  await done(h.engine);
+  await new Promise(r => setTimeout(r, 40));
+  expect([...h.store.state.intellisense.projects.values()].map(p => p.status)).toEqual(['ready', 'ready', 'ready']);
+});
+
+test('recompute of a running project starts it again', async () => {
+  const h = await setup({ gate: { project: 'Math' }, cores: 8 });
+  h.engine.start();
+  await new Promise(r => setTimeout(r, 0));
+  h.engine.recompute(MATH);
+  await done(h.engine);
+  await new Promise(r => setTimeout(r, 0));
+  expect(h.runs.filter(r => r === 'Math:cl')).toHaveLength(2);
+  expect(h.status(MATH)).toMatchObject({ status: 'ready', fromCache: false });
+});
+
+test('recompute goes on when a cache entry cannot be removed', async () => {
+  const h = await setup({ removeFails: true });
+  h.engine.start();
+  await done(h.engine);
+  h.runs.length = 0;
+  h.engine.recompute();
+  await new Promise(r => setTimeout(r, 0));
+  await done(h.engine);
+  expect(h.runs.filter(r => r.endsWith(':cl'))).toHaveLength(3);
+  expect(h.log.some(l => l.includes('EBUSY'))).toBe(true);
 });
 
 test('states go waiting, computing, ready', async () => {

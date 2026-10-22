@@ -23,6 +23,8 @@ export class FileIndex {
   private readonly includeDirs = new WeakMap<ProjectDump, string[]>();
   /** C++ projects on disk: the startup project first, then solution order. */
   private readonly order: string[] = [];
+  /** Project folders by guid: cl resolves relative paths of a command line against them. */
+  private readonly projectDirs = new Map<string, string>();
 
   constructor(private readonly s: IndexState) {
     const cpp = (s.solution?.projects ?? []).filter(p => p.kind === 'vcxproj' && s.projects.get(p.guid)?.exists);
@@ -36,6 +38,7 @@ export class FileIndex {
         if (!list) this.listing.set(k, [project.guid]);
         else if (!list.includes(project.guid)) list.push(project.guid);
       }
+      this.projectDirs.set(project.guid, path.win32.dirname(project.absPath));
       this.folders.push({ dir: `${pathKey(path.win32.dirname(project.absPath))}\\`, guid: project.guid });
     }
     this.folders.sort((a, b) => b.dir.length - a.dir.length);
@@ -65,7 +68,7 @@ export class FileIndex {
       const record = dump && this.recordFor(dump, file);
       if (!dump || !record) continue;
       const platform = (this.s.solution && this.s.configuration && projectConfigFor(this.s.solution, guid, this.s.configuration.name)?.platform) ?? 'x64';
-      return toConfiguration(record.commandLine, dump.systemIncludes, platform, file);
+      return toConfiguration(record.commandLine, dump.systemIncludes, platform, file, this.projectDirs.get(guid));
     }
     return undefined;
   }
@@ -74,15 +77,15 @@ export class FileIndex {
     const k = pathKey(file);
     return this.order.filter(guid => {
       const dump = dumps.get(guid);
-      return dump !== undefined && this.projectIncludeDirs(dump).some(dir => k.startsWith(dir));
+      return dump !== undefined && this.projectIncludeDirs(dump, guid).some(dir => k.startsWith(dir));
     });
   }
 
-  private projectIncludeDirs(dump: ProjectDump): string[] {
+  private projectIncludeDirs(dump: ProjectDump, guid: string): string[] {
     let dirs = this.includeDirs.get(dump);
     if (!dirs) {
       const record = dump.records.find(r => r.projectDefault) ?? dump.records[0];
-      dirs = record ? toConfiguration(record.commandLine, [], 'x64').includePath.map(d => `${pathKey(d).replace(/\\+$/, '')}\\`) : [];
+      dirs = record ? toConfiguration(record.commandLine, [], 'x64', undefined, this.projectDirs.get(guid)).includePath.map(d => `${pathKey(d).replace(/\\+$/, '')}\\`) : [];
       this.includeDirs.set(dump, dirs);
     }
     return dirs;
