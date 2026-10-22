@@ -12,6 +12,8 @@ export interface ProjectItems {
   items: ProjectItem[];
   /** Filter paths declared in the .filters file or named by an item, in file order. */
   filters: string[];
+  /** Absolute paths of the projects this one references (ProjectReference), once each; unevaluated ones are left out. */
+  references: string[];
 }
 
 export interface ItemContext {
@@ -116,7 +118,13 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
 
   const items: ProjectItem[] = [];
   const byKey = new Map<string, ProjectItem>();
+  const references: string[] = [];
   for (const { itemType, include } of includes(vcxproj)) {
+    if (itemType.toLowerCase() === 'projectreference') {
+      const resolved = evaluate(include, ctx, known);
+      if (resolved && !references.some(r => r.toLowerCase() === resolved.toLowerCase())) references.push(resolved);
+      continue;
+    }
     if (NOT_FILES.has(itemType.toLowerCase())) continue;
     const k = key(include);
     if (byKey.has(k)) continue;
@@ -146,5 +154,5 @@ export function parseProjectItems(vcxproj: string, filters: string | undefined, 
       addFilter(item.filter);
     }
   }
-  return { items, filters: filterPaths };
+  return { items, filters: filterPaths, references };
 }

@@ -58,6 +58,23 @@ test('include lists, duplicates and conditions', () => {
   expect(r.items.map(i => i.include)).toEqual(['a.cpp', 'b.cpp', 'debug.cpp']);
 });
 
+test('project references are read as resolved paths and are not files', () => {
+  const r = parseProjectItems(project(`  <ItemGroup>
+    <ProjectReference Include="..\\Core\\Core.vcxproj">
+      <Project>{11111111-1111-1111-1111-111111111111}</Project>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)Deps\\Conan.vcxproj" />
+    <ClCompile Include="a.cpp" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)'=='Debug'">
+    <ProjectReference Include="..\\core\\core.vcxproj" />
+    <ProjectReference Include="$(Unknown)\\X.vcxproj" />
+  </ItemGroup>`), undefined, ctx);
+  expect(r.references).toEqual(['C:\\s\\Core\\Core.vcxproj', 'C:\\s\\Deps\\Conan.vcxproj']);
+  expect(r.items.map(i => i.include)).toEqual(['a.cpp']);
+  expect(parseProjectItems(project(''), undefined, ctx).references).toEqual([]);
+});
+
 test('commented-out items and filters are not read', () => {
   const r = parseProjectItems(project(`  <ItemGroup>
     <!-- <ClCompile Include="old.cpp" /> -->
