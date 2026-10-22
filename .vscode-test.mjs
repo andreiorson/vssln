@@ -1,7 +1,8 @@
 import { defineConfig } from '@vscode/test-cli';
 
 // The extension depends on the C/C++ extension (cppvsdbg), so the test profiles install it; they use their own
-// extensions folder under .vscode-test, so nothing else is loaded.
+// extensions folder under .vscode-test, so nothing else is loaded. The first run downloads it from the Marketplace
+// and needs the network; later runs reuse the copy under .vscode-test.
 const common = {
   installExtensions: ['ms-vscode.cpptools'],
 };

@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { addToExclude, isIgnored } from '../settings/gitExclude';
-import { ensureObjectKey, SelectionKey } from '../settings/settings';
+import { ensureObjectPath, keyOffset, SelectionKey } from '../settings/settings';
 import { SETTINGS_RELATIVE_PATH, SettingsFile, SettingsSyntaxError, writeSolutionSelection } from '../settings/settingsFile';
 import { TreeNode } from '../solution/model';
 import { loadWorkspace } from '../state/loader';
@@ -112,8 +112,8 @@ export class Controller implements vscode.Disposable {
     }
   }
 
-  /** Opens vssln.json, creating it when missing; optionally makes sure a top-level object key exists and reveals it. */
-  async openSettings(revealKey?: string): Promise<void> {
+  /** Opens vssln.json, creating it when missing; optionally makes sure the objects of a key path exist and reveals it. */
+  async openSettings(revealPath?: string[]): Promise<void> {
     const folder = this.settingsFolder();
     if (!folder) {
       void vscode.window.showInformationMessage('Open a folder to use VS Solution settings.');
@@ -123,14 +123,18 @@ export class Controller implements vscode.Disposable {
     const current = await nodeFs.readText(file.path);
     const parsed = await file.read();
     let text = current ?? '{\n}\n';
-    if (revealKey && parsed.syntaxOk) text = ensureObjectKey(text, revealKey);
+    if (revealPath && parsed.syntaxOk) text = ensureObjectPath(text, revealPath);
     if (text !== current) await nodeFs.writeText(file.path, text);
 
     const editor = await vscode.window.showTextDocument(vscode.Uri.file(file.path));
+    // A document VS Code still holds from before the file changed on disk is reloaded, unless it has unsaved edits.
+    if (!editor.document.isDirty && editor.document.getText() !== text.replace(/^﻿/, '')) {
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+    }
     if (current === undefined) void this.offerGitExclude(folder);
-    if (revealKey) {
-      const offset = editor.document.getText().indexOf(`"${revealKey}"`);
-      if (offset >= 0) {
+    if (revealPath) {
+      const offset = keyOffset(editor.document.getText(), revealPath);
+      if (offset !== undefined) {
         const pos = editor.document.positionAt(offset);
         editor.selection = new vscode.Selection(pos, pos);
         editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
@@ -197,8 +201,8 @@ export function registerCommands(store: Store, controller: Controller, log: vsco
       if (node?.project) await controller.writeSelection('startupProject', node.project.name);
     }),
 
-    register('vssln.openSettings', (key?: unknown) => controller.openSettings(typeof key === 'string' ? key : undefined)),
-    register('vssln.configureToolchain', () => controller.openSettings('toolchain')),
+    register('vssln.openSettings', (path?: unknown) => controller.openSettings(Array.isArray(path) && path.every(k => typeof k === 'string') ? path : undefined)),
+    register('vssln.configureToolchain', () => controller.openSettings(['toolchain'])),
     register('vssln.refresh', () => controller.reload(true)),
     register('vssln.showLog', () => log.show()),
 

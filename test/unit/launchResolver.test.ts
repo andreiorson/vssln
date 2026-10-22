@@ -112,7 +112,10 @@ test('listed arguments become one command line that keeps empty and quoted argum
 
 test('a library without a program to start is explained', () => {
   const r = resolveLaunch(input({ project: project('Audio'), properties: audioProps }));
-  expect(r).toEqual({ problem: 'Audio is a DynamicLibrary and Audio.dll cannot be started; set "program" for it in vssln.json (projects.Audio.debug.program).', action: 'openSettings' });
+  expect(r).toEqual({ problem: 'Audio is a DynamicLibrary and Audio.dll cannot be started; set "program" for it in vssln.json (projects.Audio.debug.program).', action: 'openSettings', settingsPath: ['projects', 'Audio', 'debug'] });
+  // An existing entry keeps its own spelling, so Open settings lands on it.
+  const spelled = resolveLaunch(input({ project: project('Audio'), properties: audioProps, settings: { projects: { audio: { debug: {} } } } }));
+  expect(spelled).toMatchObject({ settingsPath: ['projects', 'audio', 'debug'] });
 });
 
 test('a library with a host program starts the host', () => {

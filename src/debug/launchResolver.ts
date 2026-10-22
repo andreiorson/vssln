@@ -44,12 +44,19 @@ export interface CppvsdbgConfiguration {
 }
 
 /** `argv` is what the program receives, for launches that start it themselves (Run without debugging). */
-export type LaunchResult = { config: CppvsdbgConfiguration; argv: string[] } | { problem: string; action?: 'openSettings' };
+/** `settingsPath` is where in vssln.json the problem is fixed, for Open settings. */
+export type LaunchResult =
+  | { config: CppvsdbgConfiguration; argv: string[] }
+  | { problem: string; action?: 'openSettings'; settingsPath?: string[] };
+
+/** The key of the record that names this project or configuration; names match case-insensitively. */
+function keyOf(record: Record<string, unknown> | undefined, name: string): string | undefined {
+  return record && Object.keys(record).find(k => k.toLowerCase() === name.toLowerCase());
+}
 
 function find<T>(record: Record<string, T> | undefined, name: string): T | undefined {
-  if (!record) return undefined;
-  const key = Object.keys(record).find(k => k.toLowerCase() === name.toLowerCase());
-  return key === undefined ? undefined : record[key];
+  const key = keyOf(record, name);
+  return key === undefined ? undefined : record![key];
 }
 
 /** The project's debug settings with the entry for the current configuration applied on top. */
@@ -92,6 +99,7 @@ export function resolveLaunch(input: LaunchInput): LaunchResult {
     return {
       problem: `${project.name} is a ${kind} and ${path.win32.basename(program) || 'its output'} cannot be started; set "program" for it in vssln.json (projects.${project.name}.debug.program).`,
       action: 'openSettings',
+      settingsPath: ['projects', keyOf(settings.projects, project.name) ?? project.name, 'debug'],
     };
   }
 

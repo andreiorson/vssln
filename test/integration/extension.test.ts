@@ -76,6 +76,17 @@ suite('activation', () => {
       assert.strictEqual(fs.readFileSync(settingsPath, 'utf8'), '{}\n');
       await vscode.commands.executeCommand('workbench.action.files.revert');
     });
+
+    test('Open settings with a key path creates the missing objects and puts the cursor on the last key', async () => {
+      await writeRetrying(settingsPath, '{\n  // mine\n  "projects": { "game": {} }\n}\n');
+      await vscode.commands.executeCommand('vssln.openSettings', ['projects', 'game', 'debug']);
+      const editor = vscode.window.activeTextEditor!;
+      assert.strictEqual(editor.document.uri.fsPath.toLowerCase(), settingsPath.toLowerCase());
+      const text = editor.document.getText();
+      assert.ok(text.includes('// mine'), text);
+      assert.strictEqual(editor.document.offsetAt(editor.selection.active), text.indexOf('"debug"'));
+      assert.deepStrictEqual(JSON.parse(text.replace('// mine', '')), { projects: { game: { debug: {} } } });
+    });
   });
 
   test('the Projects view renders the fixture tree', async () => {

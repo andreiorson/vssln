@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applySelectionEdit, ensureObjectKey, parseSettings, removeKeys } from '../../src/settings/settings';
+import { applySelectionEdit, ensureObjectPath, keyOffset, parseSettings, removeKeys } from '../../src/settings/settings';
 import { SettingsFile, SettingsSyntaxError, writeSolutionSelection } from '../../src/settings/settingsFile';
 import { memoryFs, readFixture } from './helpers';
 import schema from '../../schemas/vssln.schema.json';
@@ -64,12 +64,28 @@ test('selection edit on empty text creates an object', () => {
   expect(JSON.parse(applySelectionEdit('', 'solution', 'src/A.sln'))).toEqual({ solution: 'src/A.sln' });
 });
 
-test('ensureObjectKey adds an empty object once and keeps comments', () => {
-  const out = ensureObjectKey('{\n  // keep\n  "configuration": "Release|x64"\n}', 'toolchain');
+test('ensureObjectPath adds a top-level object once and keeps comments', () => {
+  const out = ensureObjectPath('{\n  // keep\n  "configuration": "Release|x64"\n}', ['toolchain']);
   expect(out).toContain('// keep');
   expect(parseSettings(out).settings).toEqual({ configuration: 'Release|x64', toolchain: {} });
-  expect(ensureObjectKey(out, 'toolchain')).toBe(out);
-  expect(JSON.parse(ensureObjectKey('', 'toolchain'))).toEqual({ toolchain: {} });
+  expect(ensureObjectPath(out, ['toolchain'])).toBe(out);
+  expect(JSON.parse(ensureObjectPath('', ['toolchain']))).toEqual({ toolchain: {} });
+});
+
+test('ensureObjectPath adds the missing objects along a path and keeps comments', () => {
+  const out = ensureObjectPath('{\n  // keep\n  "configuration": "Release|x64",\n  "projects": { "Game": {} }\n}', ['projects', 'Audio', 'debug']);
+  expect(out).toContain('// keep');
+  expect(parseSettings(out).settings).toEqual({ configuration: 'Release|x64', projects: { Game: {}, Audio: { debug: {} } } });
+  expect(ensureObjectPath(out, ['projects', 'Audio', 'debug'])).toBe(out);
+  // A value that is not an object is never replaced.
+  expect(ensureObjectPath('{ "projects": 5 }', ['projects', 'Audio'])).toBe('{ "projects": 5 }');
+});
+
+test('keyOffset finds a nested key', () => {
+  const text = '{\n  "projects": { "Audio": { "debug": {} } }\n}';
+  expect(keyOffset(text, ['projects', 'Audio', 'debug'])).toBe(text.indexOf('"debug"'));
+  expect(keyOffset(text, ['projects', 'Game'])).toBeUndefined();
+  expect(keyOffset('{ broken', ['projects'])).toBeUndefined();
 });
 
 test('writeSelection refuses to overwrite a broken file', async () => {

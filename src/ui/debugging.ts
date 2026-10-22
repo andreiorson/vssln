@@ -101,11 +101,11 @@ export class Debugging implements vscode.DebugConfigurationProvider, vscode.Debu
     });
   }
 
-  private showProblem(problem: string, action?: 'openSettings'): void {
+  private showProblem(problem: string, action?: 'openSettings', settingsPath?: string[]): void {
     this.log.warn(problem);
     // Not awaited: an open notification must not hold up VS Code's debug start.
     void vscode.window.showErrorMessage(problem, ...(action ? ['Open settings'] : [])).then(choice => {
-      if (choice === 'Open settings') void vscode.commands.executeCommand('vssln.openSettings', 'projects');
+      if (choice === 'Open settings') void vscode.commands.executeCommand('vssln.openSettings', settingsPath ?? ['projects']);
     });
   }
 
@@ -128,7 +128,7 @@ export class Debugging implements vscode.DebugConfigurationProvider, vscode.Debu
       // The launch settings do not depend on the build, so a project that cannot start is reported before building.
       const result = await this.resolve(projectName, noDebug, overrides);
       if ('problem' in result) {
-        this.showProblem(result.problem, result.action);
+        this.showProblem(result.problem, result.action, result.settingsPath);
         return undefined;
       }
       const project = this.project(projectName);

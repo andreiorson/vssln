@@ -53,10 +53,12 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 
 - [ ] The Status title shows Debug and Run buttons next to Build, Rebuild and Clean; they hide during a build and while debugging.
 - [ ] F5 builds and debugs the startup project (Game): a breakpoint in `Game/main.cpp` is hit; the Debug Console shows `args: --windowed` and `GAME_MODE: sample` from `Game.vcxproj.user` (Release|x64). F5 in the session continues.
-- [ ] Ctrl+F5 runs without debugging; no terminal is created, the output is in the Debug Console.
+- [ ] Ctrl+F5 runs without debugging; no terminal is created, the output is in the Debug Console, followed by `… exited with code 0.`; Stop during a run ends the program and its children.
+- [ ] `"console": "newExternalWindow"` for Game: Run opens a console window of its own.
+- [ ] With the focus in the integrated terminal, F5 goes to the shell (no launch).
 - [ ] Hover AssetCooker: the bug icon debugs it; its context menu has Debug and Run project.
-- [ ] With `"projects": { "AssetCooker": { "debug": { "args": ["--fast"], "env": { "COOK_MODE": "manual" }, "cwd": "${projectDir}" } } }`, Run AssetCooker: `Tools/AssetCooker/cooked.txt` shows `args=--fast` and `COOK_MODE=manual`.
-- [ ] Debug project on Audio (a dll): a message asks to set `program` for it, with Open settings.
+- [ ] With `"projects": { "AssetCooker": { "debug": { "args": ["--fast"], "env": { "COOK_MODE": "manual" }, "cwd": "${projectDir}" } } }`, Run AssetCooker: `Tools/AssetCooker/cooked.txt` shows `argc=1`, `arg[1]=--fast` and `COOK_MODE=manual`. With `"args": ["", "x y"]` it shows `argc=2`, `arg[1]=` and `arg[2]=x y`, both for Run and for Debug.
+- [ ] Debug project on Audio (a dll): a message asks to set `program` for it; Open settings opens `vssln.json` with the cursor on `projects.Audio.debug` (created when missing, comments kept).
 - [ ] Break the build (`CL=/DENGINE_BREAK_BUILD`), F5: the build fails, Problems opens, the debugger does not start.
 - [ ] A `launch.json` entry `{ "type": "vssln", "request": "launch", "name": "Game", "project": "Game", "args": ["x"] }` starts Game with `args: x`.
 

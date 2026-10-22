@@ -1,4 +1,4 @@
-import { applyEdits, modify, parse, ParseError, parseTree, printParseErrorCode } from 'jsonc-parser';
+import { applyEdits, findNodeAtLocation, modify, parse, ParseError, parseTree, printParseErrorCode } from 'jsonc-parser';
 
 export type ConsoleKind = 'integratedTerminal' | 'externalTerminal' | 'internalConsole' | 'newExternalWindow';
 
@@ -290,9 +290,28 @@ export function removeKeys(text: string, keys: string[]): string {
   return edit(text, base => present.reduce(removeProperty, base));
 }
 
-/** Adds `"key": {}` at the top level when the key is absent; otherwise returns the text unchanged. */
-export function ensureObjectKey(text: string, key: string): string {
-  const root: unknown = parse(stripBom(text), [], { allowTrailingComma: true });
-  if (isObject(root) && key in root) return text;
-  return edit(text, base => applyEdits(base, modify(base, [key], {}, FORMATTING)));
+/**
+ * Adds empty objects for the keys of the path that are absent, keeping comments and formatting; a key that holds
+ * something other than an object is left alone, with nothing added below it.
+ */
+export function ensureObjectPath(text: string, path: string[]): string {
+  let value: unknown = parse(stripBom(text), [], { allowTrailingComma: true });
+  for (let depth = 0; depth < path.length; depth++) {
+    if (isObject(value) && path[depth] in value) {
+      value = value[path[depth]];
+      if (!isObject(value)) return text;
+      continue;
+    }
+    const missing = path.slice(0, depth + 1);
+    const nested = path.slice(depth + 1).reduceRight<object>((inner, key) => ({ [key]: inner }), {});
+    return edit(text, base => applyEdits(base, modify(base, missing, nested, FORMATTING)));
+  }
+  return text;
+}
+
+/** Offset of the key at the end of the path (its opening quote), when the path exists. */
+export function keyOffset(text: string, path: string[]): number | undefined {
+  const root = parseTree(text);
+  const node = root && findNodeAtLocation(root, path);
+  return node?.parent?.type === 'property' ? node.parent.children?.[0]?.offset : undefined;
 }
