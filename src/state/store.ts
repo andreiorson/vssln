@@ -33,7 +33,25 @@ export interface AppState {
   settingsSyntaxOk: boolean;
   problems: Problem[];
   build: BuildState;
+  intellisense: IntelliSenseState;
 }
+
+/** A project's IntelliSense data in the current pass. */
+export interface ProjectIntelliSense {
+  status: 'waiting' | 'computing' | 'ready' | 'failed';
+  fromCache?: boolean;
+  /** The tail of MSBuild's output when it failed. */
+  message?: string;
+  seconds?: number;
+}
+
+export interface IntelliSenseState {
+  /** The C++ projects of the current pass, by guid. */
+  projects: Map<string, ProjectIntelliSense>;
+  running: boolean;
+}
+
+export const idleIntelliSense: IntelliSenseState = { projects: new Map(), running: false };
 
 export const initialState: AppState = {
   phase: 'loading',
@@ -43,6 +61,7 @@ export const initialState: AppState = {
   settingsSyntaxOk: true,
   problems: [],
   build: idleBuild,
+  intellisense: idleIntelliSense,
 };
 
 /** State after loading threw: nothing to show except why, with a way to the log. */

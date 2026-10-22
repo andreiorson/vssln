@@ -2,7 +2,7 @@ import { execFile, execFileSync, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { EnvExec } from '../debug/properties';
+import { EnvExec, EVALUATION_TIMEOUT_S } from '../debug/properties';
 import { RunChild } from '../debug/runAdapter';
 import { SettingsFs } from '../settings/settingsFile';
 import { LoaderDeps } from '../state/loader';
@@ -25,9 +25,10 @@ export const exec: Exec = (file, args) =>
   });
 
 /** execFile with an environment, for MSBuild evaluations (no shell). */
-export const envExec: EnvExec = (file, args, env) =>
+export const envExec: EnvExec = (file, args, env, opts = {}) =>
   new Promise((resolve, reject) => {
-    execFile(file, args, { env, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000 }, (error, stdout, stderr) => {
+    const timeout = opts.timeoutMs ?? EVALUATION_TIMEOUT_S * 1000;
+    execFile(file, args, { env, windowsHide: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout, signal: opts.signal }, (error, stdout, stderr) => {
       if (error && typeof error.code !== 'number') {
         reject(error);
         return;

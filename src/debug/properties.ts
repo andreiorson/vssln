@@ -22,6 +22,8 @@ export type EnvExec = (
   file: string,
   args: string[],
   env: Record<string, string | undefined>,
+  /** An abort kills the process; the timeout defaults to EVALUATION_TIMEOUT_S. */
+  opts?: { signal?: AbortSignal; timeoutMs?: number },
 ) => Promise<{ code: number; stdout: string; stderr: string }>;
 
 export interface DebugPropertiesInput {
