@@ -73,6 +73,19 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Break the build (`CL=/DENGINE_BREAK_BUILD`), F5: the build fails, Problems opens, the debugger does not start.
 - [ ] A `launch.json` entry `{ "type": "vssln", "request": "launch", "name": "Game", "project": "Game", "args": ["x"] }` starts Game with `args: x`.
 
+## IntelliSense
+
+- [ ] Open `samples/Engine` with nothing cached: the Status view shows `IntelliSense` with a blue spinner and `computing N · k / 12 ready`; the status bar shows `IntelliSense k/12`; project rows say `IntelliSense: waiting` / `computing` while they wait. It ends with a green check and `12 / 12 ready`, and the status bar item disappears. The log (Show log) has one line per project with its time.
+- [ ] Open `Graphics/Render/render.cpp`: no red squiggles; Go to Definition on `#include <engine/render.h>` opens `Core/include/engine/render.h`; hovering `kShaderCount` shows its value from the generated `shaders.h`; `RENDER_EXPORTS` is defined (an `#ifdef RENDER_EXPORTS` block is not greyed out).
+- [ ] Open `Graphics/Render/pch.h` (a header): the same defines apply (the project's default options).
+- [ ] Add `int broken = "text";` to `render.cpp`: a red squiggle from C/C++ appears; remove the line.
+- [ ] Reload the window: every project comes `from cache` (log), within a second or two; no MSBuild processes in Task Manager.
+- [ ] Change `Build/Common.props` (add a define), save: the projects that import it are computed again (log), the others stay from the cache; undo.
+- [ ] Switch to `Debug|x64`: a new pass runs; switching back to `Release|x64` takes everything from the cache.
+- [ ] Start a Build while IntelliSense computes: the row says `paused for the build`; after the build the pass finishes.
+- [ ] Recompute IntelliSense (the ↻ button on the IntelliSense row, or the Status menu) computes everything again; Recompute IntelliSense for Project in a project's context menu computes only that project.
+- [ ] Break a project for MSBuild (for example an `<Import Project="missing.props" />` in `Audio.vcxproj`): Audio shows `IntelliSense failed` with the MSBuild output in its tooltip, the row shows `1 failed`, the status bar shows `IntelliSense: 1 failed`; the other projects are ready. Undo.
+
 ## Toolchain
 
 - [ ] With Visual Studio installed and no `toolchain` settings: no error row; the log (Show log) names the Visual Studio instance.

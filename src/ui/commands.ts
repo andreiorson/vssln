@@ -44,7 +44,8 @@ export class Controller implements vscode.Disposable {
     try {
       const state = await loadWorkspace(loaderDeps(opts => this.toolchain.find(opts)));
       if (generation !== this.generation) return;
-      this.store.set({ ...state, build: carryBuild(this.store.state, state) });
+      // The IntelliSense engine starts a new pass for the new state; until then the old progress stays visible.
+      this.store.set({ ...state, build: carryBuild(this.store.state, state), intellisense: this.store.state.intellisense });
       const sln = state.solution ? `${path.basename(state.solution.path)}, ${state.configuration?.name ?? 'no configuration'}` : 'no solution';
       this.log.info(`Loaded: ${sln}; ${state.projects.size} C++ projects; toolchain ${state.toolchain?.displayName ?? 'not found'}.`);
       for (const p of state.problems) (p.severity === 'error' ? this.log.error : this.log.warn).call(this.log, p.message);

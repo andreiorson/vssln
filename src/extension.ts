@@ -6,6 +6,7 @@ import { Builds, registerBuildCommands } from './ui/builds';
 import { coalesce, debounce } from './ui/coalesce';
 import { Debugging, registerDebugging } from './ui/debugging';
 import { Controller, registerCommands } from './ui/commands';
+import { IntelliSenseApi, registerIntelliSense } from './ui/intellisense';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
 import { registerProjectsFilter } from './ui/projectsFilter';
 import { ProjectItemsProvider } from './ui/projectItems';
@@ -23,6 +24,8 @@ export interface VsslnApi {
   builds: Pick<Builds, 'run' | 'stop'>;
   /** Launch configurations without building or starting, for tests and other extensions. */
   debugging: Pick<Debugging, 'resolve' | 'launch' | 'evaluate'>;
+  /** The IntelliSense engine and the configuration cpptools gets for a file, for tests. */
+  intellisense: IntelliSenseApi;
 }
 
 export function activate(context: vscode.ExtensionContext): VsslnApi {
@@ -35,6 +38,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const builds = new Builds(store, context.logUri.fsPath, log, () => controller.reload());
   const debugging = new Debugging(store, builds, context.asAbsolutePath('resources/vssln-debug.targets'), log);
 
+  const intellisense = registerIntelliSense(context, store, log);
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
   // A checkout touches many files at once: one redraw for the burst.
@@ -92,12 +96,13 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     ...registerCommands(store, controller, log),
     ...registerBuildCommands(builds),
     ...registerDebugging(debugging, store),
+    ...intellisense.disposables,
   );
 
   void controller.reload();
   log.info(`Activated; project decorations use the ${PROJECT_SCHEME} scheme.`);
 
-  return { getState: () => store.state, views: { status: statusView, projects: projectsView, projectsTree, decorations }, builds, debugging };
+  return { getState: () => store.state, views: { status: statusView, projects: projectsView, projectsTree, decorations }, builds, debugging, intellisense: intellisense.api };
 }
 
 export function deactivate(): void {}

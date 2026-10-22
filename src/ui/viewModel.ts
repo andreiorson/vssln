@@ -6,7 +6,7 @@ import { BuildState, ProjectBuild } from '../state/build';
 import { AppState, Problem } from '../state/store';
 
 export interface StatusRow {
-  id: 'solution' | 'configuration' | 'startup' | 'build' | `problem:${number}`;
+  id: 'solution' | 'configuration' | 'startup' | 'intellisense' | 'build' | `problem:${number}`;
   label: string;
   description?: string;
   tooltip?: string;
@@ -42,7 +42,7 @@ export interface Decoration {
 }
 
 export interface StatusBarEntry {
-  id: 'configuration' | 'startup' | 'build';
+  id: 'configuration' | 'startup' | 'intellisense' | 'build';
   text: string;
   tooltip: string;
   command: string;
@@ -128,6 +128,26 @@ function buildRow(b: BuildState, now: number): StatusRow | undefined {
   }
 }
 
+/** Counts of the current IntelliSense pass. */
+function intellisenseCounts(s: AppState): { total: number; ready: number; computing: number; failed: number } {
+  const all = [...s.intellisense.projects.values()];
+  const count = (status: string) => all.filter(p => p.status === status).length;
+  return { total: all.length, ready: count('ready'), computing: count('computing'), failed: count('failed') };
+}
+
+function intellisenseRow(s: AppState): StatusRow | undefined {
+  const { total, ready, computing, failed } = intellisenseCounts(s);
+  if (total === 0) return undefined;
+  const common = { id: 'intellisense' as const, label: 'IntelliSense', tooltip: 'IntelliSense data from MSBuild. Click for the log.', command: 'vssln.showLog', contextValue: 'status.intellisense' };
+  const counts = `${ready} / ${total} ready`;
+  if (s.intellisense.running) {
+    const doing = s.build.status === 'running' ? 'paused for the build · ' : computing > 0 ? `computing ${computing} · ` : '';
+    return { ...common, description: `${doing}${counts}`, icon: 'sync~spin', iconColor: RUNNING };
+  }
+  if (failed > 0) return { ...common, description: `${failed} failed · ${counts}`, icon: 'warning', iconColor: WARNING };
+  return { ...common, description: counts, icon: 'check', iconColor: PASSED };
+}
+
 function problemRows(s: AppState): StatusRow[] {
   return s.problems.map((p, i) => ({
     id: `problem:${i}` as const,
@@ -182,8 +202,9 @@ export function statusRows(s: AppState, now = Date.now()): StatusRow[] {
       contextValue: 'status.startup',
     },
   ];
+  const intellisense = intellisenseRow(s);
   const build = buildRow(s.build, now);
-  return [...rows, ...(build ? [build] : []), ...problemRows(s)];
+  return [...rows, ...(intellisense ? [intellisense] : []), ...(build ? [build] : []), ...problemRows(s)];
 }
 
 function projectBuildDescription(p: ProjectBuild, action: BuildState['action']): string {
@@ -330,10 +351,15 @@ export function projectRow(node: TreeNode, s: AppState): ProjectRow {
   const iconColor = projectIconColor(build);
   const parts = [TYPE_SHORT[status.type], plural(status.files, 'file')];
   if (project.guid === s.startupProjectGuid) parts.push('startup');
+  // IntelliSense says something only while it works on the project, or when it failed.
+  const sense = s.intellisense.projects.get(project.guid);
+  if (sense?.status === 'failed') parts.push('IntelliSense failed');
+  else if (s.intellisense.running && (sense?.status === 'waiting' || sense?.status === 'computing')) parts.push(`IntelliSense: ${sense.status}`);
+  const messages = build?.messages.length ? build.messages : sense?.status === 'failed' && sense.message ? [sense.message] : [];
   return {
     label: node.label,
     description: build ? projectBuildDescription(build, s.build.action) : parts.filter(Boolean).join(' · '),
-    tooltip: build?.messages.length ? `${project.absPath}\n${build.messages.join('\n')}` : project.absPath,
+    tooltip: messages.length ? `${project.absPath}\n${messages.join('\n')}` : project.absPath,
     icon: build?.status === 'building' ? 'loading~spin' : TYPE_ICONS[status.type],
     ...(iconColor ? { iconColor } : {}),
     contextValue: status.type === 'Application' ? 'project.app' : 'project.lib',
@@ -375,6 +401,12 @@ export function statusBarItems(s: AppState): StatusBarEntry[] {
   const startup = s.solution?.projects.find(p => p.guid === s.startupProjectGuid);
   if (startup) {
     items.push({ id: 'startup', text: `$(rocket) ${startup.name}`, tooltip: 'Startup project', command: 'vssln.selectStartupProject' });
+  }
+  const sense = intellisenseCounts(s);
+  if (sense.total > 0 && s.intellisense.running) {
+    items.push({ id: 'intellisense', text: `$(sync~spin) IntelliSense ${sense.ready}/${sense.total}`, tooltip: `Computing IntelliSense data: ${sense.ready} of ${sense.total} projects ready`, command: 'vssln.showLog' });
+  } else if (sense.failed > 0) {
+    items.push({ id: 'intellisense', text: `$(warning) IntelliSense: ${sense.failed} failed`, tooltip: `IntelliSense data of ${plural(sense.failed, 'project')} could not be computed. Click for the log.`, command: 'vssln.showLog' });
   }
   const b = s.build;
   if (b.status === 'running') {

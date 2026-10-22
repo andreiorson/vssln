@@ -216,6 +216,17 @@
         "command": "vssln.targetPath",
         "title": "Startup project program path",
         "category": "VS Solution"
+      },
+      {
+        "command": "vssln.recomputeIntelliSense",
+        "title": "Recompute IntelliSense",
+        "category": "VS Solution",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vssln.recomputeIntelliSenseForProject",
+        "title": "Recompute IntelliSense for Project",
+        "category": "VS Solution"
       }
     ],
     "menus": {
@@ -279,6 +290,11 @@
           "command": "vssln.run",
           "when": "view == vssln.status && vssln.phase == ready && !vssln.building && !inDebugMode",
           "group": "navigation@5"
+        },
+        {
+          "command": "vssln.recomputeIntelliSense",
+          "when": "view == vssln.status && vssln.phase == ready",
+          "group": "1_vssln@0"
         }
       ],
       "view/item/context": [
@@ -356,6 +372,16 @@
           "command": "vssln.runProject",
           "when": "view == vssln.projects && viewItem == project.app && !vssln.building",
           "group": "0_debug@2"
+        },
+        {
+          "command": "vssln.recomputeIntelliSense",
+          "when": "view == vssln.status && viewItem == status.intellisense",
+          "group": "inline"
+        },
+        {
+          "command": "vssln.recomputeIntelliSenseForProject",
+          "when": "view == vssln.projects && viewItem =~ /^project\\.(app|lib)$/",
+          "group": "3_intellisense"
         }
       ],
       "commandPalette": [
@@ -414,6 +440,14 @@
         {
           "command": "vssln.syncActiveFile",
           "when": "vssln.phase == ready"
+        },
+        {
+          "command": "vssln.recomputeIntelliSense",
+          "when": "vssln.phase == ready"
+        },
+        {
+          "command": "vssln.recomputeIntelliSenseForProject",
+          "when": "false"
         }
       ]
     },
