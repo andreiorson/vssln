@@ -1,0 +1,18 @@
+[
+  {
+    "instanceId": "4a8f2c1e",
+    "installDate": "2024-01-15T10:00:00Z",
+    "installationName": "VisualStudio/16.11.34+34729.46",
+    "installationPath": "C:\\VS\\2019\\Professional",
+    "installationVersion": "16.11.34",
+    "productId": "Microsoft.VisualStudio.Product.Professional",
+    "productPath": "C:\\VS\\2019\\Professional\\Common7\\IDE\\devenv.exe",
+    "isComplete": true,
+    "isLaunchable": true,
+    "isPrerelease": false,
+    "displayName": "Visual Studio Professional 2019",
+    "description": "Professional developer tools and services for small teams",
+    "channelId": "VisualStudio.16.Release",
+    "catalog": { "productDisplayVersion": "16.11.34" }
+  }
+]
