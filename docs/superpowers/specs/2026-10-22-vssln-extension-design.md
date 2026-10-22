@@ -23,7 +23,7 @@ In v1:
 
 Not in v1 (the design must leave room for them):
 
-- Filters (`.vcxproj.filters`), files and references nodes under a project.
+- References nodes under a project (filters and files were added after v1, section 4.7).
 - Editing projects (adding files, changing properties).
 - C# and other project types; non-Windows platforms.
 - Batch build, multiple startup projects.
@@ -90,7 +90,18 @@ Three compact items: configuration, startup project, IntelliSense counter. Durin
 
 ### 4.6 Extensibility of the tree
 
-Node model: every node has a kind and a children provider. v1 kinds: solution folder, project. Planned kinds: filter, file, references group, reference. A project node becomes collapsible when a children provider for it is registered; nothing else in the views changes.
+Node model: every node has a kind and a children provider. v1 kinds: solution folder, project; then filter and file (section 4.7). Planned kinds: references group, reference. A project node becomes collapsible when a children provider for it is registered; nothing else in the views changes.
+
+### 4.7 Filters and files
+
+- A C++ project whose file exists expands to its filters and files, as in Solution Explorer. Filters come from `.vcxproj.filters` (`Source FilesSub` becomes nested nodes); a file sits under the filter its `<Filter>` names. Files without a filter, and all files when there is no `.filters` file, sit directly under the project. Inside a node: filters first, then files, each alphabetical ignoring case. Declared filters without files are shown, empty.
+- Items: every element with an `Include` inside an `<ItemGroup>` of the `.vcxproj`, except item types that are not files (`ProjectConfiguration`, `ProjectReference`, `Reference`, `Filter`, `ProjectCapability`, `PackageReference`, `ProjectTools`, `Service`, `BuildMacro`). An `Include` with `;` gives several items; conditions are ignored (every configuration shows the same files, like Solution Explorer); the same path twice is one node. Items from imported `.props`/`.targets` are not shown: the project file is read as text, without MSBuild.
+- Paths are relative to the project directory. `$(ProjectDir)`, `$(MSBuildProjectDirectory)`, `$(MSBuildThisFileDirectory)`, `$(SolutionDir)`, `$(ProjectName)`, `$(MSBuildProjectName)` and `$(SolutionName)` are substituted (names ignore case); XML entities and MSBuild `%XX` escapes are decoded. An item with any other `$(...)`, `@(...)` or a wildcard keeps its raw text as label, the description `not evaluated`, and cannot be opened.
+- File node: label is the file name, tooltip the full path, icon from the file icon theme, a click opens the file (as a preview, like the Explorer). A file missing on disk is greyed out with the description `file not found`. Context menu: Reveal in Explorer, Copy path. Filter node: folder icon from the theme, no description.
+- Node ids are stable across reloads (`<project guid>/f/<filter path>`, `<project guid>/i/<file path>`, lower case), so expanded nodes stay expanded.
+- Reading: the `.vcxproj.filters` is read with its `.vcxproj` when the solution loads (both are small); whether files exist is checked when a project is expanded. A change of a `.vcxproj.filters` reloads like a `.vcxproj` change; creating or deleting a file a project lists refreshes the tree without a reload.
+- The live filter still matches projects and folders; a matching project keeps all its files.
+- Later: reveal the active editor's file in the tree, Compile file (`Ctrl+F7`), filtering by file names, the references node.
 
 ## 5. Settings file
 
