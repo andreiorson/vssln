@@ -12,7 +12,8 @@ export interface VcxprojScan {
 
 const KNOWN_TYPES = new Set<ConfigurationType>(['Application', 'DynamicLibrary', 'StaticLibrary', 'Utility', 'Makefile']);
 
-const PROPERTY_GROUP = /<PropertyGroup\b([^>]*)>([\s\S]*?)<\/PropertyGroup>/g;
+// The lookbehind skips self-closing <PropertyGroup ... />, which would otherwise run on to the next closing tag.
+const PROPERTY_GROUP = /<PropertyGroup\b([^>]*?)(?<!\/)>([\s\S]*?)<\/PropertyGroup>/g;
 const CONDITION_ATTR = /\bCondition\s*=\s*"([^"]*)"/;
 const CONDITION_VALUE = /==\s*'([^']*)'/;
 const CONFIGURATION_TYPE = /<ConfigurationType>\s*([^<\s]+)\s*<\/ConfigurationType>/;

@@ -47,6 +47,19 @@ test('selection edit keeps comments', () => {
   expect(parseSettings(out).settings.configuration).toBe('Debug|x64');
 });
 
+test('inserting a new selection key leaves hand-formatted properties alone', () => {
+  const text = '{\n  "environment": { "A": "1",   "B": "2" } // mine\n}\n';
+  const out = applySelectionEdit(text, 'configuration', 'Debug|x64');
+  expect(out).toContain('  "environment": { "A": "1",   "B": "2" } // mine\n');
+  expect(parseSettings(out).settings).toEqual({ configuration: 'Debug|x64', environment: { A: '1', B: '2' } });
+});
+
+test('new selection keys go after the existing ones', () => {
+  const out = applySelectionEdit('{\n  "solution": "a.sln",\n  "environment": {}\n}', 'configuration', 'Debug|x64');
+  expect(out.indexOf('"configuration"')).toBeGreaterThan(out.indexOf('"solution"'));
+  expect(out.indexOf('"configuration"')).toBeLessThan(out.indexOf('"environment"'));
+});
+
 test('selection edit on empty text creates an object', () => {
   expect(JSON.parse(applySelectionEdit('', 'solution', 'src/A.sln'))).toEqual({ solution: 'src/A.sln' });
 });
@@ -111,5 +124,9 @@ test('read reports a missing file', async () => {
 });
 
 test('schema top-level keys match the settings model', () => {
-  expect(Object.keys(schema.properties)).toEqual(['solution', 'configuration', 'startupProject', 'toolchain', 'environment', 'build', 'msbuild', 'projects']);
+  expect(Object.keys(schema.properties)).toEqual(['$schema', 'solution', 'configuration', 'startupProject', 'toolchain', 'environment', 'build', 'msbuild', 'projects']);
+});
+
+test('schema allows the trailing commas the parser accepts', () => {
+  expect((schema as { allowTrailingCommas?: boolean }).allowTrailingCommas).toBe(true);
 });

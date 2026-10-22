@@ -233,9 +233,20 @@ function edit(raw: string, change: (base: string) => string): string {
   return bom + change(text.trim() === '' ? '{}' : text);
 }
 
+const SELECTION_KEYS: string[] = ['solution', 'configuration', 'startupProject'];
+
+/** A new selection key goes right after the existing selection keys (or first), so hand-written properties are not touched. */
+function selectionInsertionIndex(properties: string[]): number {
+  let index = 0;
+  properties.forEach((p, i) => {
+    if (SELECTION_KEYS.includes(p)) index = i + 1;
+  });
+  return index;
+}
+
 /** Sets one selection key, keeping comments and formatting of the rest of the file. */
 export function applySelectionEdit(text: string, key: SelectionKey, value: string): string {
-  return edit(text, base => applyEdits(base, modify(base, [key], value, FORMATTING)));
+  return edit(text, base => applyEdits(base, modify(base, [key], value, { ...FORMATTING, getInsertionIndex: selectionInsertionIndex })));
 }
 
 /**

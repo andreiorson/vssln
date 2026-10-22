@@ -21,6 +21,19 @@ test('unknown when nothing matches', () => {
   expect(typeFor(undefined, 'Release|x64')).toBe('unknown');
 });
 
+test('a self-closing PropertyGroup does not swallow the next group', () => {
+  const s = scanVcxproj([
+    '<Project>',
+    '  <PropertyGroup Label="UserMacros" />',
+    `  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">`,
+    '    <ConfigurationType>DynamicLibrary</ConfigurationType>',
+    '  </PropertyGroup>',
+    '</Project>',
+  ].join('\n'));
+  expect(s.types).toEqual({ 'Release|x64': 'DynamicLibrary' });
+  expect(s.defaultType).toBeUndefined();
+});
+
 test('tolerates spaces around == in conditions', () => {
   const s = scanVcxproj(readFixture('workspace/Tools/Legacy/Legacy.vcxproj'));
   expect(typeFor(s, 'Debug|Win32')).toBe('Utility');

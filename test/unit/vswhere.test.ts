@@ -108,6 +108,23 @@ test('no instance in range is a problem naming the range', async () => {
   expect(r.problem).toContain('[18,19)');
 });
 
+test('a Preview-only installation is found on a second, -prerelease query', async () => {
+  const deps = fakeDeps({ vswhere: 'empty.json', existing: [CURRENT] });
+  deps.exec = async (file, args) => {
+    deps.calls.push({ file, args });
+    return { code: 0, stdout: readFixture(args.includes('-prerelease') ? 'vswhere/vs2019.json' : 'vswhere/empty.json'), stderr: '' };
+  };
+  const r = await findToolchain({}, deps);
+  expect(r.instance!.msbuildPath).toBe(CURRENT);
+  expect(deps.calls.map(c => c.args.includes('-prerelease'))).toEqual([false, true]);
+});
+
+test('a stable installation is used without a -prerelease query', async () => {
+  const deps = fakeDeps({ vswhere: 'vs2019.json', existing: [CURRENT] });
+  await findToolchain({}, deps);
+  expect(deps.calls).toHaveLength(1);
+});
+
 test('vswhere failure or garbage output is a problem', async () => {
   const deps = fakeDeps({});
   deps.exec = async () => ({ code: 1, stdout: 'not json', stderr: 'boom' });

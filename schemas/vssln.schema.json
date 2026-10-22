@@ -3,8 +3,12 @@
   "title": "VS Solution personal workspace settings",
   "description": "Personal settings of the VS Solution extension for this workspace folder. Not meant to be committed.",
   "type": "object",
+  "allowTrailingCommas": true,
   "additionalProperties": false,
   "properties": {
+    "$schema": {
+      "type": "string"
+    },
     "solution": {
       "type": "string",
       "description": "Selected solution, relative to the workspace folder. Written by the panel."

@@ -75,19 +75,25 @@ export async function findToolchain(opts: ToolchainOptions, deps: ToolchainDeps)
   if (!(await deps.exists(vswhere))) return { problem: `vswhere.exe not found at "${vswhere}". Is Visual Studio installed?` };
 
   const range = opts.vsVersion && opts.vsVersion !== 'latest' ? opts.vsVersion : undefined;
-  const args = ['-latest', ...(range ? ['-version', range] : []), '-products', '*', '-requires', 'Microsoft.Component.MSBuild', '-format', 'json', '-utf8'];
+  const query = async (prerelease: boolean): Promise<VswhereEntry | ToolchainResult> => {
+    const args = ['-latest', ...(prerelease ? ['-prerelease'] : []), ...(range ? ['-version', range] : []),
+      '-products', '*', '-requires', 'Microsoft.Component.MSBuild', '-format', 'json', '-utf8'];
+    try {
+      const result = await deps.exec(vswhere, args);
+      if (result.code !== 0) return { problem: `vswhere failed with exit code ${result.code}: ${result.stderr.trim()}` };
+      const parsed: unknown = JSON.parse(result.stdout);
+      const entries = Array.isArray(parsed) ? (parsed as VswhereEntry[]) : [];
+      return entries.find(e => typeof e.installationPath === 'string') ?? {};
+    } catch (e) {
+      return { problem: `vswhere output could not be read: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  };
 
-  let entries: VswhereEntry[];
-  try {
-    const result = await deps.exec(vswhere, args);
-    if (result.code !== 0) return { problem: `vswhere failed with exit code ${result.code}: ${result.stderr.trim()}` };
-    const parsed: unknown = JSON.parse(result.stdout);
-    entries = Array.isArray(parsed) ? (parsed as VswhereEntry[]) : [];
-  } catch (e) {
-    return { problem: `vswhere output could not be read: ${e instanceof Error ? e.message : String(e)}` };
-  }
-
-  const entry = entries.find(e => typeof e.installationPath === 'string');
+  // Stable releases win; a Preview is used only when it is the only installation.
+  let found = await query(false);
+  if (!('installationPath' in found) && !('problem' in found)) found = await query(true);
+  if ('problem' in found) return found as ToolchainResult;
+  const entry = 'installationPath' in found ? (found as VswhereEntry) : undefined;
   if (!entry) {
     return { problem: range ? `No Visual Studio with MSBuild in version range ${range}.` : 'No Visual Studio with MSBuild found.' };
   }

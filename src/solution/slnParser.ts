@@ -72,7 +72,7 @@ export function parseSln(text: string, slnPath: string): ParsedSolution {
   let currentProject: SlnProject | undefined;
   let section: string | undefined;
 
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
