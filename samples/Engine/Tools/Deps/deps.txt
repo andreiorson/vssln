@@ -1,0 +1,1 @@
+The dependencies Deps "installs": building the project writes out\generated\deps.props, which Platform imports.

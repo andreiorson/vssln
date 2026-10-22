@@ -32,12 +32,12 @@ test('idle build', () => {
 
 test('expected projects: built C++ projects with a file', () => {
   const names = expectedProjects(engine, releaseX64, entries).map(g => engine.projects.find(p => p.guid === g)!.name).sort();
-  expect(names).toEqual(['AssetCooker', 'Audio', 'Containers', 'Editor', 'Game', 'Math', 'MathTests', 'Platform', 'Render', 'Shaders']);
+  expect(names).toEqual(['AssetCooker', 'Audio', 'Containers', 'Deps', 'Editor', 'Game', 'Math', 'MathTests', 'Platform', 'Render', 'Shaders']);
 });
 
 test('start puts expected projects in waiting', () => {
   const b = solutionBuild();
-  expect(b).toMatchObject({ status: 'running', action: 'Rebuild', startedAt: 0, total: 10, done: 0, logFile: 'C:\\t\\build.log' });
+  expect(b).toMatchObject({ status: 'running', action: 'Rebuild', startedAt: 0, total: 11, done: 0, logFile: 'C:\\t\\build.log' });
   expect(b.projectName).toBeUndefined();
   expect(b.projects.get(guid('Math'))).toEqual({ status: 'waiting', errors: 0, warnings: 0, messages: [] });
 });
@@ -105,8 +105,10 @@ test('replaying a failed rebuild', () => {
 
 test('replaying an incremental build', () => {
   const b = finishBuild(replay('msbuild/build-incremental.log', solutionBuild()), { exitCode: 0, cancelled: false }, 999);
-  expect(b).toMatchObject({ status: 'succeeded', done: 10, total: 10, errors: 0 });
-  expect([...b.projects.values()].every(p => p.status === 'succeeded')).toBe(true);
+  // The log was captured before the sample had Deps: Deps never starts and ends skipped.
+  expect(b).toMatchObject({ status: 'succeeded', done: 10, total: 11, errors: 0 });
+  expect([...b.projects].filter(([g]) => g !== guid('Deps')).every(([, p]) => p.status === 'succeeded')).toBe(true);
+  expect(b.projects.get(guid('Deps'))!.status).toBe('skipped');
 });
 
 test('a reload keeps the build state only for the same solution and configuration', () => {

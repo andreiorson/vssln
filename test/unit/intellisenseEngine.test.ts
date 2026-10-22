@@ -270,6 +270,20 @@ test('a Directory.Build.props that appears re-checks the projects below it', asy
   expect(h.runs.filter(r => r.endsWith(':cl'))).toEqual(['Game:cl']);
 });
 
+test('a failed project is tried again when files change (its missing import may have appeared)', async () => {
+  const fail = ['Math'];
+  const h = await setup({ fail });
+  h.engine.start();
+  await done(h.engine);
+  expect(h.status(MATH)!.status).toBe('failed');
+  fail.length = 0;
+  h.runs.length = 0;
+  h.engine.recheck([path.join(WORKSPACE, 'out', 'generated', 'deps.props')]);
+  await done(h.engine);
+  expect(h.runs.filter(r => r.endsWith(':cl'))).toEqual(['Math:cl']);
+  expect(h.status(MATH)!.status).toBe('ready');
+});
+
 test('pause and resume at once leave no project waiting', async () => {
   const h = await setup({ slowFirstRead: 20, cores: 2 });
   h.engine.start();

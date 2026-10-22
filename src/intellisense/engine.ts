@@ -141,7 +141,10 @@ export class IntelliSenseEngine {
   recheck(files: string[]): void {
     const keys = files.map(pathKey);
     const affected = [...this.data].filter(([, d]) => keys.some(k => d.inputs.has(k) || d.awaited.has(k))).map(([guid]) => guid);
-    const guids = [...new Set([...affected, ...(this.scheduler?.active ?? [])])];
+    // A failed project has no inputs to compare: the new file may be the import it missed (a property sheet that a
+    // package step such as conan writes on its first build), so it is tried again.
+    const failed = [...this.store.state.intellisense.projects].filter(([, p]) => p.status === 'failed').map(([guid]) => guid);
+    const guids = [...new Set([...affected, ...failed, ...(this.scheduler?.active ?? [])])];
     if (guids.length === 0) return;
     this.hasher = new Hasher(this.deps.read);
     this.requeue(guids);

@@ -54,6 +54,8 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="PropertySheets">
     <Import Project="$(SolutionDir)Build\Common.props" />
+    <!-- Written by building Deps, imported without a condition (as Property Manager adds conan's sheets). -->
+    <Import Project="$(SolutionDir)out\generated\deps.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -90,6 +92,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="platform.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Tools\Deps\Deps.vcxproj">
+      <Project>{A1000000-0000-0000-0000-00000000000D}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

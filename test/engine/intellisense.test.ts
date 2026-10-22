@@ -5,8 +5,8 @@ import * as vscode from 'vscode';
 import type { VsslnApi } from '../../src/extension';
 import { api, waitFor } from './helpers';
 
-/** The 10 C++ projects of Release|x64 that exist on disk (Missing is skipped). */
-const PROJECTS = 10;
+/** The 11 C++ projects of Release|x64 that exist on disk (Missing is skipped). */
+const PROJECTS = 11;
 
 async function settled(a: VsslnApi): Promise<void> {
   await waitFor(() => a.getState().intellisense.projects.size > 0 && !a.getState().intellisense.running, 240000);

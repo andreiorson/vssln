@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Stands for a package manager project such as conan: building it produces a property sheet that another project
+    (Platform) imports without a condition. MSBuild reads a project before it builds its references, so Platform can
+    only be read after Deps was built: the extension builds in waves along the project dependencies for this.
+  -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{A1000000-0000-0000-0000-00000000000D}</ProjectGuid>
+    <RootNamespace>Deps</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(SolutionDir)Build\Common.props" />
+  </ImportGroup>
+  <ItemGroup>
+    <None Include="deps.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <!-- Part of the build only (not of the calls references make), as a package install step is. -->
+  <Target Name="InstallDependencies" AfterTargets="Build">
+    <Message Importance="High" Text="Installing dependencies: writing out\generated\deps.props" />
+    <WriteLinesToFile File="$(SolutionDir)out\generated\deps.props" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="&lt;Project xmlns=&quot;http://schemas.microsoft.com/developer/msbuild/2003&quot;&gt;&lt;ItemDefinitionGroup&gt;&lt;ClCompile&gt;&lt;PreprocessorDefinitions&gt;ENGINE_DEPS=1%3B%25(PreprocessorDefinitions)&lt;/PreprocessorDefinitions&gt;&lt;/ClCompile&gt;&lt;/ItemDefinitionGroup&gt;&lt;/Project&gt;" />
+  </Target>
+</Project>

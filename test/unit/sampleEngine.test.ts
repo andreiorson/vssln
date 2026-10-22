@@ -43,6 +43,7 @@ test('samples/Engine tree matches the sample README', () => {
     '  MathTests (exe · 1 file)',
     'Tools',
     '  AssetCooker (exe · 1 file)',
+    '  Deps (utility · 0 files)',
     '  Editor (exe · 1 file)',
     '  Legacy (not in Release|x64)',
     'Audio (dll · 1 file)',

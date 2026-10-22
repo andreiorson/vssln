@@ -32,9 +32,24 @@ suite('build samples/Engine', () => {
     const b = a.getState().build;
     assert.strictEqual(b.status, 'succeeded', `build ended as ${b.status}`);
     assert.strictEqual(vscode.window.terminals.length, terminals);
-    assert.strictEqual(b.done, 10);
+    assert.strictEqual(b.done, 11);
     assert.strictEqual(b.projects.get(guidOf(a, 'Render'))!.status, 'succeeded');
     assert.strictEqual(b.projects.get(guidOf(a, 'Math'))!.status, 'succeeded');
+  });
+
+  test('a project that imports what another project produces builds from a clean state, in waves', async function () {
+    const a = await api();
+    if (!a.getState().toolchain) this.skip();
+    // Platform imports outgenerateddeps.props, which only building Deps (listed last in the .sln) writes.
+    await (await startBuild(a, 'Clean')).done;
+    fs.rmSync(path.join(folder, 'out', 'generated', 'deps.props'), { force: true });
+    await (await startBuild(a, 'Build')).done;
+    const b = a.getState().build;
+    assert.strictEqual(b.status, 'succeeded', `build ended as ${b.status}`);
+    const deps = b.projects.get(guidOf(a, 'Deps'))!;
+    const platform = b.projects.get(guidOf(a, 'Platform'))!;
+    assert.strictEqual(platform.status, 'succeeded');
+    assert.ok(deps.finishedAt! <= platform.startedAt!, 'Platform started before Deps finished');
   });
 
   test('Stop during a rebuild cancels it and leaves nothing building', async function () {
