@@ -165,6 +165,16 @@ test('onStarted is called once for a started build and never for a refused one',
   expect(started).toBe(1);
 });
 
+test('each diagnostic is handed out once, without the summary repeats', async () => {
+  const store = new Store();
+  store.set(readyState());
+  const { runner } = fakeRunner('msbuild/rebuild-failed.log', 1);
+  const seen: string[] = [];
+  await runBuild({ ...deps(store, runner, []), onDiagnostic: e => seen.push(`${e.severity}:${e.text.slice(-20)}`) }, { action: 'Rebuild' });
+  expect(seen.filter(s => s.startsWith('error'))).toHaveLength(1);
+  expect(seen.filter(s => s.startsWith('warning'))).toHaveLength(1);
+});
+
 test('a build requested while the solution loads says so', async () => {
   const store = new Store();
   store.set({ ...initialState, phase: 'loading' });

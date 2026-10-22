@@ -123,7 +123,7 @@
       {
         "command": "vssln.rebuild",
         "title": "Rebuild solution",
-        "icon": "$(debug-restart)",
+        "icon": "$(refresh)",
         "category": "VS Solution"
       },
       {
@@ -317,50 +317,31 @@
         }
       ]
     },
-    "taskDefinitions": [
-      {
-        "type": "vssln",
-        "required": [
-          "action"
-        ],
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": [
-              "Build",
-              "Rebuild",
-              "Clean"
-            ],
-            "description": "What MSBuild does."
-          },
-          "project": {
-            "type": "string",
-            "description": "Project name as in the .sln; the whole solution when omitted."
-          }
-        }
-      }
-    ],
-    "problemMatchers": [
-      {
-        "name": "vssln-nolocation",
-        "owner": "vssln",
-        "source": "MSBuild",
-        "fileLocation": "absolute",
-        "pattern": {
-          "regexp": "^(?!.*\\(\\d+(?:,\\d+)*\\)\\s*:)\\s*(?:\\d+(?::\\d+)?>)?(.*?)\\s*:\\s*(?:[A-Za-z][A-Za-z ]*?\\s)?(?:fatal\\s+)?(error|warning)(?:\\s+([A-Za-z]+\\d+))?\\s*:\\s*(.*?)\\s+\\[([^\\]]+)\\]$",
-          "kind": "file",
-          "file": 5,
-          "severity": 2,
-          "code": 3,
-          "message": 4
-        }
-      }
-    ],
     "keybindings": [
       {
         "command": "vssln.filterProjects",
         "key": "ctrl+alt+f",
         "when": "focusedView == vssln.projects"
+      },
+      {
+        "command": "vssln.build",
+        "key": "ctrl+shift+b",
+        "when": "vssln.phase == ready && !vssln.building"
+      }
+    ],
+    "languages": [
+      {
+        "id": "vssln-build-output",
+        "aliases": [
+          "VS Solution build output"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vssln-build-output",
+        "scopeName": "source.vssln-build",
+        "path": "./syntaxes/vssln-build.tmLanguage.json"
       }
     ]
   },

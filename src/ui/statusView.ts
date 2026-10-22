@@ -35,7 +35,8 @@ export class StatusView implements vscode.TreeDataProvider<StatusRow>, vscode.Di
     item.id = row.id;
     item.description = row.description;
     item.tooltip = row.tooltip;
-    item.iconPath = new vscode.ThemeIcon(row.icon);
+    item.iconPath = new vscode.ThemeIcon(row.icon, row.iconColor ? new vscode.ThemeColor(row.iconColor) : undefined);
+    if (row.resourceUri) item.resourceUri = vscode.Uri.parse(row.resourceUri);
     item.contextValue = row.contextValue;
     if (row.command) item.command = { command: row.command, title: row.label };
     return item;

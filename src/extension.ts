@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ChildrenRegistry } from './solution/model';
 import { AppState, Store } from './state/store';
-import { BuildTasks, registerBuildCommands } from './ui/buildTasks';
+import { Builds, registerBuildCommands } from './ui/builds';
 import { debounce } from './ui/coalesce';
 import { Controller, registerCommands } from './ui/commands';
 import { PROJECT_SCHEME, ProjectDecorations } from './ui/decorations';
@@ -15,6 +15,8 @@ export interface VsslnApi {
   getState(): AppState;
   /** The tree data providers behind the side bar, for tests and other extensions. */
   views: { status: StatusView; projects: ProjectsView; decorations: ProjectDecorations };
+  /** Builds without the confirmation dialogs, for tests and other extensions. */
+  builds: Pick<Builds, 'run' | 'stop'>;
 }
 
 export function activate(context: vscode.ExtensionContext): VsslnApi {
@@ -22,7 +24,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   const store = new Store();
   const registry = new ChildrenRegistry();
   const controller = new Controller(store, log);
-  const builds = new BuildTasks(store, context.logUri.fsPath, log);
+  const builds = new Builds(store, context.logUri.fsPath, log);
 
   const statusView = new StatusView(store);
   const projectsView = new ProjectsView(store, registry);
@@ -77,7 +79,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   void controller.reload();
   log.info(`Activated; project decorations use the ${PROJECT_SCHEME} scheme.`);
 
-  return { getState: () => store.state, views: { status: statusView, projects: projectsView, decorations } };
+  return { getState: () => store.state, views: { status: statusView, projects: projectsView, decorations }, builds };
 }
 
 export function deactivate(): void {}

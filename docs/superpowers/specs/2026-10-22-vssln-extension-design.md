@@ -35,7 +35,7 @@ Not in v1 (the design must leave room for them):
   2. the `.sln` and MSBuild evaluation (configurations, project mapping, `TargetPath`, `LocalDebugger*` including a `.vcxproj.user` if present, `IncludePath`);
   3. automatic discovery (Visual Studio and MSBuild through `vswhere`, `DevEnvDir` of the found instance);
   4. built-in defaults.
-- **Native VS Code mechanisms first.** Tree views, QuickPick, tasks, debug configuration providers, problem matchers. No webview in v1.
+- **Native VS Code mechanisms first.** Tree views, QuickPick, Output channels, the Problems collection, debug configuration providers. No webview in v1.
 - **Thin VS Code layer.** Logic lives in pure modules with injected dependencies (as in the brief, section 11).
 
 ## 4. User interface
@@ -84,9 +84,9 @@ Three compact items: configuration, startup project, IntelliSense counter. Durin
 ### 4.5 Integration with VS Code mechanisms
 
 - Every action is a command and is available from the command palette.
-- `Ctrl+Shift+B` works through a `TaskProvider` (section 6).
+- `Ctrl+Shift+B` runs Build solution while a solution is loaded (keybinding `vssln.build`, when `vssln.phase == ready`).
 - `F5` works through a `DebugConfigurationProvider` (section 7) with no `launch.json`.
-- Compiler errors reach the Problems panel through the `$msCompile` problem matcher.
+- Compiler and linker errors reach the Problems panel through the extension's own diagnostic collection (source `MSBuild`); errors without a source position are shown on the project file.
 
 ### 4.6 Extensibility of the tree
 
@@ -151,12 +151,12 @@ Rules:
 
 ## 6. Build
 
-Every build action is a VS Code task produced by a `TaskProvider` with `CustomExecution` and a pseudoterminal. Output goes to the task terminal, `$msCompile` fills the Problems panel, and the pseudoterminal also feeds the output parser that drives the tree.
+Build output goes to one Output channel, `VS Solution: Build`, cleared at the start of every build and colored by a small grammar (errors red, warnings yellow, results green or red). User feedback after phase 2 replaced the earlier VS Code tasks: every task opened its own terminal. The extension fills Problems itself from the parsed diagnostics. Results are also colored in the panel (green, yellow, red icons; red label and badge for failed projects; green or red Build row) and in the status bar (green `Built m:ss`, red background with the error count).
 
 - Solution: `MSBuild.exe <sln> -t:Build|Rebuild|Clean -p:Configuration=<c> -p:Platform=<p> -p:DevEnvDir=<dir> -m -nologo`, a file logger, extra properties from `msbuild.properties`, environment from `environment`. Spawned from Node with an argument array, no shell (brief, section 13).
 - Single project: the same command on the `.sln` with a solution target, `-t:<Folder\Path\Project>` or `-t:<Folder\Path\Project>:Rebuild|Clean`, so the solution's configuration mapping and project dependencies apply as in Visual Studio. Target names follow MSBuild's solution target naming (characters such as `.` replaced by `_`).
 - Progress: parsed from MSBuild console output (project started, project finished, errors, warnings) into per-project build states. This format is the main risk of this part and is verified first against a real solution; fallback is to show only the final result and the error list.
-- Dirty editors are saved by VS Code before every task (its `task.saveBeforeRun` setting). Clean and Rebuild ask for a modal confirmation. Stop kills the whole process tree (`taskkill /t /f`).
+- Dirty editors are saved before every build, as Visual Studio does. Clean and Rebuild ask for a modal confirmation. Stop kills the whole process tree (`taskkill /t /f`).
 - Mutual exclusion: a build pauses the IntelliSense computation and resumes it afterwards; the solution and configuration cannot be changed during a build; only one build runs at a time.
 
 ## 7. Run and debug
@@ -200,7 +200,7 @@ The open question of the brief (cpptools re-query after `didChangeCustomConfigur
 | `msbuild/*` | as in the brief, plus project properties for debugging (`TargetPath`, `LocalDebugger*`) from the same custom target | injected `exec` / `exists` |
 | `build/args` | MSBuild command lines for solution and project targets | pure |
 | `build/outputParser` | console output to per-project build events | pure |
-| `build/task` | `TaskProvider`, pseudoterminal, process tree kill | injected `spawn` / `kill` |
+| `ui/builds` | Output channel, Problems collection, confirmation, Stop | manual (integration tests) |
 | `debug/launchResolver` | properties plus overrides to a `cppvsdbg` configuration | pure |
 | `debug/provider` | `DebugConfigurationProvider`, command variables | thin |
 | `intellisense/*` | engine, cache, scheduler, invalidator, fileIndex, provider (brief, section 11) | as in the brief |

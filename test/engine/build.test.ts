@@ -19,10 +19,12 @@ async function api(): Promise<VsslnApi> {
   return a;
 }
 
-async function runTask(action: 'Build' | 'Rebuild' | 'Clean'): Promise<void> {
-  const task = (await vscode.tasks.fetchTasks({ type: 'vssln' })).find(t => t.definition.action === action);
-  assert.ok(task, `no vssln ${action} task`);
-  await vscode.tasks.executeTask(task);
+/** Starts a build without the confirmation dialog and returns once it is running. */
+async function startBuild(a: VsslnApi, action: 'Build' | 'Rebuild' | 'Clean'): Promise<{ done: Promise<unknown> }> {
+  const done = a.builds.run(action);
+  await waitFor(() => a.getState().build.status === 'running', 30000);
+  // Wrapped: an async function would otherwise wait for the returned promise.
+  return { done };
 }
 
 const finished = (a: VsslnApi) => () => !['idle', 'running'].includes(a.getState().build.status);
@@ -34,14 +36,14 @@ suite('build samples/Engine', () => {
 
   suiteTeardown(() => fs.rmSync(settingsDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
-  test('Build task builds the solution and reports every project', async function () {
+  test('Build builds the solution, reports every project and opens no terminal', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
-    await runTask('Build');
-    await waitFor(() => a.getState().build.status === 'running', 30000);
-    await waitFor(finished(a), 240000);
+    const terminals = vscode.window.terminals.length;
+    await (await startBuild(a, 'Build')).done;
     const b = a.getState().build;
     assert.strictEqual(b.status, 'succeeded', `build ended as ${b.status}`);
+    assert.strictEqual(vscode.window.terminals.length, terminals);
     assert.strictEqual(b.done, 10);
     assert.strictEqual(b.projects.get(guidOf(a, 'Render'))!.status, 'succeeded');
     assert.strictEqual(b.projects.get(guidOf(a, 'Math'))!.status, 'succeeded');
@@ -50,10 +52,9 @@ suite('build samples/Engine', () => {
   test('Stop during a rebuild cancels it and leaves nothing building', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
-    await runTask('Rebuild');
-    await waitFor(() => a.getState().build.status === 'running', 30000);
+    const { done } = await startBuild(a, 'Rebuild');
     await vscode.commands.executeCommand('vssln.stop');
-    await waitFor(finished(a), 60000);
+    await done;
     const b = a.getState().build;
     assert.strictEqual(b.status, 'cancelled');
     assert.ok([...b.projects.values()].every(p => p.status !== 'building' && p.status !== 'waiting'));
@@ -66,9 +67,7 @@ suite('build samples/Engine', () => {
     fs.writeFileSync(path.join(settingsDir, 'vssln.json'), '{ "environment": { "CL": "/DENGINE_BREAK_BUILD" } }\n');
     await waitFor(() => a.getState().settings.environment?.CL === '/DENGINE_BREAK_BUILD', 30000);
 
-    await runTask('Rebuild');
-    await waitFor(() => a.getState().build.status === 'running', 30000);
-    await waitFor(finished(a), 240000);
+    await (await startBuild(a, 'Rebuild')).done;
     const b = a.getState().build;
     assert.strictEqual(b.status, 'failed');
     assert.deepStrictEqual(
@@ -91,9 +90,7 @@ suite('build samples/Engine', () => {
     fs.writeFileSync(path.join(settingsDir, 'vssln.json'), '{ "environment": { "LINK": "/INCLUDE:vssln_missing_symbol" } }\n');
     await waitFor(() => a.getState().settings.environment?.LINK !== undefined, 30000);
 
-    await runTask('Rebuild');
-    await waitFor(() => a.getState().build.status === 'running', 30000);
-    await waitFor(finished(a), 240000);
+    await (await startBuild(a, 'Rebuild')).done;
     assert.strictEqual(a.getState().build.status, 'failed');
     // The first project to link (Audio.dll) reports it; MSBuild names the project in the [...] suffix.
     const onProject = () => vscode.languages.getDiagnostics().some(([uri, list]) =>
@@ -107,8 +104,7 @@ suite('build samples/Engine', () => {
     fs.rmSync(settingsDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     await waitFor(() => a.getState().settings.environment === undefined && a.getState().configuration?.name === 'Release|x64', 30000);
 
-    await runTask('Rebuild');
-    await waitFor(() => a.getState().build.status === 'running', 30000);
+    const { done } = await startBuild(a, 'Rebuild');
     fs.mkdirSync(settingsDir, { recursive: true });
     fs.writeFileSync(path.join(settingsDir, 'vssln.json'), '{ "configuration": "Debug|x64" }\n');
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -116,9 +112,10 @@ suite('build samples/Engine', () => {
     // The deferred reload runs when the build ends; the new configuration then also resets the build row.
     await waitFor(() => a.getState().configuration?.name === 'Debug|x64', 240000);
     assert.notStrictEqual(a.getState().build.status, 'running');
+    await done;
   });
 
-  test('VS Code saves dirty editors before a build task', async function () {
+  test('dirty editors are saved before a build', async function () {
     const a = await api();
     if (!a.getState().toolchain) this.skip();
     const doc = await vscode.workspace.openTextDocument(path.join(folder, 'Tools', 'Legacy', 'legacy.cpp'));
@@ -126,8 +123,7 @@ suite('build samples/Engine', () => {
     await editor.edit(e => e.insert(new vscode.Position(0, 0), '// probe\n'));
     assert.ok(doc.isDirty);
     try {
-      await runTask('Build');
-      await waitFor(() => a.getState().build.status === 'running' || !doc.isDirty, 30000);
+      await vscode.commands.executeCommand('vssln.build');
       await waitFor(finished(a), 240000);
       assert.strictEqual(doc.isDirty, false);
     } finally {

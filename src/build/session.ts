@@ -4,7 +4,7 @@ import { applyBuildEvent, BuildState, counts, expectedProjects, finishBuild, sta
 import { Store } from '../state/store';
 import { samePath } from '../util/paths';
 import { BuildRequest, buildArgs } from './args';
-import { OutputParser } from './outputParser';
+import { BuildEvent, OutputParser } from './outputParser';
 import { BuildRunner } from './runner';
 
 export interface SessionDeps {
@@ -17,6 +17,8 @@ export interface SessionDeps {
   write(line: string): void;
   /** Called once, when the build has really started (not for a refused request). */
   onStarted?(): void;
+  /** Each error or warning of the build, once (the final summary repeats are not passed on). */
+  onDiagnostic?(e: Extract<BuildEvent, { kind: 'diagnostic' }>): void;
 }
 
 export type SessionResult = { started: false; reason: string } | { started: true; outcome: BuildState };
@@ -84,6 +86,7 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
         const parsed = parser.push(line);
         if (parsed.display !== undefined) deps.write(parsed.display);
         for (const e of parsed.events) {
+          if (e.kind === 'diagnostic') deps.onDiagnostic?.(e);
           if (e.kind === 'projectFinished' && counts(request.action, e.target)) {
             deps.write(`${path.win32.basename(e.path).replace(/\.vcxproj$/i, '')}: ${e.failed ? 'FAILED' : 'succeeded'}`);
           }

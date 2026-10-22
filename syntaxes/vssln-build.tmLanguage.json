@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "VS Solution build output",
+  "scopeName": "source.vssln-build",
+  "patterns": [
+    {
+      "name": "token.error-token",
+      "match": "^(?:.+: FAILED|Build FAILED\\.)$"
+    },
+    {
+      "name": "markup.inserted",
+      "match": "^(?:.+: succeeded|Build succeeded\\.)$"
+    },
+    {
+      "name": "token.warn-token",
+      "match": "^Build stopped\\.$"
+    },
+    {
+      "name": "token.info-token",
+      "match": "^(?:Build|Rebuild|Clean) .+ \\([^)]*\\)$"
+    },
+    {
+      "name": "token.error-token",
+      "match": "\\b(?:fatal\\s+)?error(?:\\s+[A-Za-z]+\\d+)?(?=\\s*:)"
+    },
+    {
+      "name": "token.warn-token",
+      "match": "\\bwarning(?:\\s+[A-Za-z]+\\d+)?(?=\\s*:)"
+    }
+  ]
+}

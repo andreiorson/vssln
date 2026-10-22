@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { Store } from '../state/store';
 import { coalesce } from './coalesce';
-import { projectDecoration } from './viewModel';
+import { projectDecoration, statusDecoration } from './viewModel';
 
 export const PROJECT_SCHEME = 'vssln-project';
+const STATUS_SCHEME = 'vssln-status';
 
 /** Greys out inactive projects and marks failed builds (colour and error-count badge), the way the Explorer decorates files. */
 export class ProjectDecorations implements vscode.FileDecorationProvider, vscode.Disposable {
@@ -16,8 +17,11 @@ export class ProjectDecorations implements vscode.FileDecorationProvider, vscode
   }
 
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-    if (uri.scheme !== PROJECT_SCHEME) return undefined;
-    const d = projectDecoration(uri.toString(), this.store.state);
+    const d = uri.scheme === PROJECT_SCHEME
+      ? projectDecoration(uri.toString(), this.store.state)
+      : uri.scheme === STATUS_SCHEME
+        ? statusDecoration(uri.toString(), this.store.state)
+        : undefined;
     if (!d) return undefined;
     const decoration = new vscode.FileDecoration(d.badge, d.tooltip, d.color ? new vscode.ThemeColor(d.color) : undefined);
     decoration.propagate = false;

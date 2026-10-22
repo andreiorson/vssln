@@ -77,7 +77,7 @@ export class ProjectsView implements vscode.TreeDataProvider<TreeNode>, vscode.D
     item.id = this.filter ? `${node.id}#filtered` : node.id;
     item.description = row.description;
     item.tooltip = row.tooltip;
-    item.iconPath = new vscode.ThemeIcon(row.icon);
+    item.iconPath = new vscode.ThemeIcon(row.icon, row.iconColor ? new vscode.ThemeColor(row.iconColor) : undefined);
     item.contextValue = row.contextValue;
     item.resourceUri = vscode.Uri.parse(row.resourceUri);
     return item;
