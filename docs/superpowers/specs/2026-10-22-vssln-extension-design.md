@@ -54,7 +54,7 @@ A short tree with a fixed set of rows:
 | Build | last result (succeeded / failed, time, duration) or live progress (done / total, elapsed, error count) | shows build output | Stop while building |
 | IntelliSense | readiness icon (running, ok, partial, error) and counter as in the brief | shows log | Recompute |
 
-View title buttons: Build, Debug, Run without debugging; replaced by Stop while a build or a debug session started by the extension runs. Overflow menu: Rebuild, Clean, Recompute IntelliSense, Open settings, Show log.
+View title buttons, all visible without opening a menu (user feedback after phase 1: everything needed to build and debug must be right in the panel): Build (incremental), Rebuild, Clean, Debug, Run without debugging; while a build runs they are replaced by Stop. Debug and Run arrive with phase 3. Overflow menu: Recompute IntelliSense, Open settings, Reload solution, Show log.
 
 While a build runs the solution and configuration rows are locked (description says so) and IntelliSense computation is paused.
 
