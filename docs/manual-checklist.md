@@ -26,6 +26,8 @@ Run on `samples/Engine` (the "Run extension on samples/Engine" launch configurat
 - [ ] Right-click a file: Reveal in Explorer and Copy path; there is no Build or Set as startup.
 - [ ] Rename `Graphics/Render/frame.cpp` on disk: `frame.cpp` turns grey with `file not found`; renaming it back restores it, without a reload.
 - [ ] Add `<ClCompile Include="extra.cpp"><Filter>Source Files\Extra</Filter></ClCompile>` to `Render.vcxproj.filters` and `<ClCompile Include="extra.cpp" />` to `Render.vcxproj`: after saving, `Source Files › Extra › extra.cpp` appears (grey), and expanded nodes stay expanded. Undo both edits.
+- [ ] Collapse everything, open `Graphics/Render/frame.cpp`, press the ⇄ button (Sync with Active Document) in the Projects title: `Graphics › Render › Source Files` open and `frame.cpp` is selected, the tree has the focus. Switching editors afterwards does not move the selection.
+- [ ] Sync with `Engine.sln` or `vssln.json` active: a message says the file is not in any project. With the filter `audio` and `frame.cpp` active: a message says Render is hidden by the filter; Clear filter clears it and selects the file.
 - [ ] A project without a `.filters` file shows its files directly under the project; a library project (Audio) expands as well; `Legacy` (greyed, not in Release|x64) still shows its files, like Solution Explorer; `Missing` (file not found) has no arrow.
 
 ## Selection and settings file

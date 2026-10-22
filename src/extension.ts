@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { ChildrenRegistry } from './solution/model';
+import { ChildrenRegistry, TreeNode } from './solution/model';
 import { AppState, Store } from './state/store';
 import { Builds, registerBuildCommands } from './ui/builds';
 import { coalesce, debounce } from './ui/coalesce';
@@ -12,12 +12,13 @@ import { ProjectItemsProvider } from './ui/projectItems';
 import { ProjectsView } from './ui/projectsView';
 import { StatusBar } from './ui/statusBar';
 import { StatusView } from './ui/statusView';
+import { registerSyncActiveFile } from './ui/syncActiveFile';
 import { deletionAffects } from './util/paths';
 
 export interface VsslnApi {
   getState(): AppState;
   /** The tree data providers behind the side bar, for tests and other extensions. */
-  views: { status: StatusView; projects: ProjectsView; decorations: ProjectDecorations };
+  views: { status: StatusView; projects: ProjectsView; projectsTree: vscode.TreeView<TreeNode>; decorations: ProjectDecorations };
   /** Builds without the confirmation dialogs, for tests and other extensions. */
   builds: Pick<Builds, 'run' | 'stop'>;
   /** Launch configurations without building or starting, for tests and other extensions. */
@@ -80,6 +81,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
     projectsTree,
     projectsTree.onDidCollapseElement(e => items.collapsed(e.element)),
     ...registerProjectsFilter(projectsView, projectsTree),
+    ...registerSyncActiveFile(store, projectsView, projectsTree),
     vscode.window.registerFileDecorationProvider(decorations),
     ...watchers,
     { dispose: () => reload.cancel() },
@@ -95,7 +97,7 @@ export function activate(context: vscode.ExtensionContext): VsslnApi {
   void controller.reload();
   log.info(`Activated; project decorations use the ${PROJECT_SCHEME} scheme.`);
 
-  return { getState: () => store.state, views: { status: statusView, projects: projectsView, decorations }, builds, debugging };
+  return { getState: () => store.state, views: { status: statusView, projects: projectsView, projectsTree, decorations }, builds, debugging };
 }
 
 export function deactivate(): void {}

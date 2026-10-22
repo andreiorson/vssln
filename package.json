@@ -173,6 +173,12 @@
         "category": "VS Solution"
       },
       {
+        "command": "vssln.syncActiveFile",
+        "title": "Sync with Active Document",
+        "category": "VS Solution",
+        "icon": "$(arrow-swap)"
+      },
+      {
         "command": "vssln.debug",
         "title": "Debug startup project",
         "icon": "$(debug-alt)",
@@ -258,6 +264,11 @@
           "command": "vssln.clearProjectsFilter",
           "when": "view == vssln.projects && vssln.filtered",
           "group": "navigation@2"
+        },
+        {
+          "command": "vssln.syncActiveFile",
+          "when": "view == vssln.projects && vssln.phase == ready",
+          "group": "navigation@3"
         },
         {
           "command": "vssln.debug",
@@ -399,6 +410,10 @@
         {
           "command": "vssln.targetPath",
           "when": "false"
+        },
+        {
+          "command": "vssln.syncActiveFile",
+          "when": "vssln.phase == ready"
         }
       ]
     },

@@ -122,6 +122,29 @@ suite('activation', () => {
     await waitFor(() => row('game.cpp').description === 'file not found', 10000);
   });
 
+  test('Sync with Active Document selects the open file', async () => {
+    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    await waitFor(() => api.getState().phase === 'ready', 10000);
+    const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
+    const { projects: view, projectsTree: tree } = api.views;
+    try {
+      await vscode.window.showTextDocument(vscode.Uri.file(path.join(folder, 'Game', 'main.cpp')));
+      await vscode.commands.executeCommand('vssln.syncActiveFile');
+      await waitFor(() => tree.selection[0]?.label === 'main.cpp', 5000);
+      const chain: string[] = [];
+      for (let n = view.getParent(tree.selection[0]); n; n = view.getParent(n)) chain.push(n.label);
+      assert.deepStrictEqual(chain, ['Source Files', 'Game']);
+
+      // A filter that hides Game: the command explains instead of changing the filter or the selection.
+      view.setFilter('math');
+      await vscode.commands.executeCommand('vssln.syncActiveFile');
+      assert.strictEqual(view.filterText, 'math');
+    } finally {
+      view.setFilter('');
+      await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    }
+  });
+
   test('the Projects view renders the fixture tree', async () => {
     const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);
