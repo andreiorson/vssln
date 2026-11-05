@@ -75,7 +75,7 @@ export async function runBuild(deps: SessionDeps, request: BuildRequest): Promis
   const logFile = path.win32.join(deps.logDir, 'build.log');
   const properties = s.settings.msbuild?.properties ?? {};
   // Build and Rebuild go in waves along the dependency graph, so that every project is read by MSBuild only after
-  // the projects it depends on were built (spec section 6). One wave, or a cycle, is the plain run as before.
+  // the projects it depends on were built. One wave, or a cycle, is the plain run as before.
   const wavesWanted = request.action !== 'Clean' && s.settings.build?.waves !== false;
   const filtersSupported = solutionFiltersSupported(toolchain);
   // From here a Stop applies to this build, also while the references are read.

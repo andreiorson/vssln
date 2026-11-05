@@ -92,7 +92,9 @@ suite('IntelliSense on samples/Engine', () => {
       await vscode.window.showTextDocument(uri);
       const fromCpptools = () => vscode.languages.getDiagnostics(uri).filter(d => d.source === 'C/C++');
       await waitFor(() => fromCpptools().some(d => d.range.start.line === 2), 120000);
-      assert.deepStrictEqual(fromCpptools().filter(d => d.range.start.line < 2).map(d => d.message), []);
+      // Errors only: cpptools also hints at includes the probe does not use ("Include is not used").
+      const includeErrors = fromCpptools().filter(d => d.range.start.line < 2 && d.severity === vscode.DiagnosticSeverity.Error);
+      assert.deepStrictEqual(includeErrors.map(d => d.message), []);
     } finally {
       await vscode.commands.executeCommand('workbench.action.closeAllEditors');
       fs.rmSync(probe, { force: true });

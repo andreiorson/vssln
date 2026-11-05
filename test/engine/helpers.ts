@@ -12,7 +12,7 @@ export async function waitFor(condition: () => boolean, timeoutMs: number): Prom
 }
 
 export async function api(): Promise<VsslnApi> {
-  const a = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+  const a = await vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
   await waitFor(() => a.getState().phase === 'ready', 30000);
   return a;
 }

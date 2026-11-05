@@ -2,10 +2,17 @@
   "name": "vssln",
   "displayName": "VS Solution",
   "description": "Visual Studio C++ solutions in VS Code: solution panel, build, debug and IntelliSense.",
-  "version": "0.5.2",
-  "publisher": "local",
-  "license": "UNLICENSED",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/andreiorson/vssln.git"
+  },
+  "homepage": "https://github.com/andreiorson/vssln#readme",
+  "bugs": {
+    "url": "https://github.com/andreiorson/vssln/issues"
+  },
+  "version": "0.5.3",
+  "publisher": "andreiorson",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -579,5 +586,13 @@
   },
   "extensionDependencies": [
     "ms-vscode.cpptools"
+  ],
+  "keywords": [
+    "visual studio",
+    "sln",
+    "vcxproj",
+    "msbuild",
+    "c++",
+    "intellisense"
   ]
 }

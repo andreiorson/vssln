@@ -31,7 +31,7 @@ export class Controller implements vscode.Disposable {
 
   /**
    * Reloads the workspace; `fresh` also forgets the cached Visual Studio lookup (the Reload command). During a build
-   * the reload waits: the solution, configuration and toolchain cannot change under a running build (spec 6).
+   * the reload waits: the solution, configuration and toolchain cannot change under a running build.
    */
   async reload(fresh = false): Promise<void> {
     if (this.store.state.build.status === 'running') {
@@ -71,7 +71,7 @@ export class Controller implements vscode.Disposable {
     if (folder) await this.write(folder, [folder], () => new SettingsFile(folder, nodeFs).writeSelection(key, value));
   }
 
-  /** Selects a solution: its folder's file gets it, the other folders' files lose theirs (spec 5, multi-root). */
+  /** Selects a solution: its folder's file gets it, the other folders' files lose theirs (multi-root). */
   async writeSolution(folder: string, relPath: string): Promise<void> {
     const folders = workspaceFolders();
     await this.write(folder, folders, () => writeSolutionSelection(folders, folder, relPath, nodeFs));

@@ -14,7 +14,7 @@ export interface ProjectSettings {
   debug?: DebugSettings & { byConfiguration?: Record<string, DebugSettings> };
 }
 
-/** Contents of the personal .vscode/vssln.json (spec section 5). */
+/** Contents of the personal .vscode/vssln.json. */
 export interface VsslnSettings {
   solution?: string;
   configuration?: string;

@@ -28,8 +28,8 @@ async function writeRetrying(file: string, text: string): Promise<void> {
 
 suite('activation', () => {
   test('loads the fixture solution', async () => {
-    const ext = vscode.extensions.getExtension<VsslnApi>('local.vssln');
-    assert.ok(ext, 'extension local.vssln is not installed in the test instance');
+    const ext = vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln');
+    assert.ok(ext, 'extension andreiorson.vssln is not installed in the test instance');
     const api = await ext.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);
     const s = api.getState();
@@ -49,7 +49,7 @@ suite('activation', () => {
     const mathNode = { id: 'x', kind: 'project', label: 'Math', children: [], project: { name: 'Math' } };
 
     async function api(): Promise<VsslnApi> {
-      return vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+      return vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
     }
 
     teardown(async () => {
@@ -90,7 +90,7 @@ suite('activation', () => {
   });
 
   test('a project shows its filters and files; a click opens a file', async () => {
-    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    const api = await vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);
     const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
     const view = api.views.projects;
@@ -123,7 +123,7 @@ suite('activation', () => {
   });
 
   test('Sync with Active Document selects the open file', async () => {
-    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    const api = await vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);
     const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
     const { projects: view, projectsTree: tree } = api.views;
@@ -164,7 +164,7 @@ suite('activation', () => {
   });
 
   test('the Projects view renders the fixture tree', async () => {
-    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    const api = await vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);
     const roots = api.views.projects.getChildren();
     assert.deepStrictEqual(roots.map(n => n.label), ['Core', 'Tools', 'Docs', 'Game', 'Missing']);
@@ -178,7 +178,7 @@ suite('activation', () => {
   });
 
   test('the live filter shows matching projects with their folders expanded', async () => {
-    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    const api = await vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
     await waitFor(() => api.getState().phase === 'ready', 10000);
     const view = api.views.projects;
     try {
@@ -201,7 +201,7 @@ suite('activation', () => {
   });
 
   test('creating a missing project file updates the tree without a manual reload', async () => {
-    const api = await vscode.extensions.getExtension<VsslnApi>('local.vssln')!.activate();
+    const api = await vscode.extensions.getExtension<VsslnApi>('andreiorson.vssln')!.activate();
     const folder = vscode.workspace.workspaceFolders![0].uri.fsPath;
     const missingDir = path.join(folder, 'Missing');
     const guid = '{66666666-6666-6666-6666-666666666666}';

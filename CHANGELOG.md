@@ -2,6 +2,13 @@
 
 All notable changes to the VS Solution extension. Versions follow the development phases; the package version goes up with every package build.
 
+## 0.5.3 — 2026-11-05
+
+### Changed
+
+- Published on GitHub under the MIT license, with a README. The extension id is now `andreiorson.vssln`: uninstall the earlier `local.vssln` after installing this version.
+- A new side bar icon: the letters VS in a frame.
+
 ## 0.5.2 — 2026-10-23
 
 ### Fixed
